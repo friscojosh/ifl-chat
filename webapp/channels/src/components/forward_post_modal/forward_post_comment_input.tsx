@@ -142,6 +142,7 @@ const ForwardPostCommentInput = ({channelId, canForwardPost, comment, permaLinkL
             createMessage={createMessage}
             channelId={channelId}
             id={'forward_post_textbox'}
+            testId='forward_post_modal.comment'
             ref={textboxRef}
             characterLimit={maxPostSize}
             useChannelMentions={false}

@@ -13,6 +13,8 @@ import {isSendOnCtrlEnter} from 'selectors/preferences';
 type Props = {
     onSave: () => void;
     onCancel?: () => void;
+
+    testIdScope?: string;
 };
 
 export default function EditPostFooter(props: Props) {
@@ -31,6 +33,7 @@ export default function EditPostFooter(props: Props) {
             <button
                 onClick={props.onSave}
                 className='save'
+                data-testid={props.testIdScope ? `${props.testIdScope}.save--button` : undefined}
             >
                 <FormattedMessage
                     id='edit_post.action_buttons.save'
@@ -40,6 +43,7 @@ export default function EditPostFooter(props: Props) {
             <button
                 onClick={handleCancel}
                 className='cancel'
+                data-testid={props.testIdScope ? `${props.testIdScope}.cancel--button` : undefined}
             >
                 <FormattedMessage
                     id='edit_post.action_buttons.cancel'
