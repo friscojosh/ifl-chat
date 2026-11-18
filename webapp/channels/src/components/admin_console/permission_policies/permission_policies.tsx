@@ -182,6 +182,7 @@ export default function PermissionPolicyList(props: Props): JSX.Element {
 
         return policies.map((policy: AccessControlPolicy) => {
             return {
+                testKey: policy.id,
                 cells: {
                     name: (
                         <div className='policy-name'>
@@ -204,6 +205,7 @@ export default function PermissionPolicyList(props: Props): JSX.Element {
                                 menuButton={{
                                     id: `policy-menu-${policy.id}`,
                                     as: PolicyMenuTrigger,
+                                    dataTestId: 'admin.permission_policies.row.open_menu--button',
                                     'aria-label': policyMenuLabel,
                                     children: <Icon glyph={<DotsVerticalIcon/>}/>,
                                 }}
@@ -217,6 +219,7 @@ export default function PermissionPolicyList(props: Props): JSX.Element {
                             >
                                 <Menu.Item
                                     id={`policy-menu-edit-${policy.id}`}
+                                    data-testid='admin.permission_policies.row.menu.edit--menuitem'
                                     onClick={() => {
                                         history.push(`/admin_console/system_attributes/permission_policies/edit_policy/${policy.id}`);
                                     }}
@@ -230,6 +233,7 @@ export default function PermissionPolicyList(props: Props): JSX.Element {
                                 />
                                 <Menu.Item
                                     id={`policy-menu-delete-${policy.id}`}
+                                    data-testid='admin.permission_policies.row.menu.delete--menuitem'
                                     onClick={() => handleDelete(policy.id)}
                                     leadingElement={<i className='icon icon-trash-can-outline'/>}
                                     labels={
@@ -335,9 +339,12 @@ export default function PermissionPolicyList(props: Props): JSX.Element {
             className='PolicyTable'
             title={panelMessages.title}
             subtitle={panelMessages.description}
+            titleTestId='admin.permission_policies.title--text'
+            subtitleTestId='admin.permission_policies.subtitle--text'
             button={
                 <Button
                     emphasis='primary'
+                    data-testid='admin.permission_policies.add--button'
                     onClick={() => {
                         history.push('/admin_console/system_attributes/permission_policies/edit_policy');
                     }}
@@ -350,6 +357,7 @@ export default function PermissionPolicyList(props: Props): JSX.Element {
             }
         >
             <DataGrid
+                testIdScope='admin.permission_policies'
                 columns={columns}
                 rows={rows}
                 loading={loading}
