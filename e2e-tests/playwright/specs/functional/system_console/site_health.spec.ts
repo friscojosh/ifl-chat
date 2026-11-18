@@ -1,7 +1,7 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-// TODO: Add a full e2e test of the health dashboard with real findings once an admin can trigger a health check run.
+// Real findings coverage requires an admin-triggered health check run; this test covers loading the dashboard.
 
 import {openSystemConsoleSection, expect, test} from '@mattermost/playwright-lib';
 
