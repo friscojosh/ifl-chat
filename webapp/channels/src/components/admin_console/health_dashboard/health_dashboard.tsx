@@ -105,10 +105,11 @@ const HealthDashboard = ({findings, mutedFindings, lastEvaluatedAt, actions}: Pr
 
     let content;
     if (loading) {
-        content = <LoadingSpinner/>;
+        content = <LoadingSpinner testId='admin.health.loading_spinner'/>;
     } else if (failed) {
         content = (
             <EmptyState
+                testId='admin.health.load_error'
                 title={
                     <FormattedMessage
                         id='admin.health_dashboard.error.title'
@@ -126,6 +127,7 @@ const HealthDashboard = ({findings, mutedFindings, lastEvaluatedAt, actions}: Pr
     } else if (lastEvaluatedAt === 0) {
         content = (
             <EmptyState
+                testId='admin.health.not_evaluated'
                 title={
                     <FormattedMessage
                         id='admin.health_dashboard.empty.title'
@@ -145,7 +147,10 @@ const HealthDashboard = ({findings, mutedFindings, lastEvaluatedAt, actions}: Pr
 
         content = (
             <>
-                <p className='HealthDashboard__lastEvaluated'>
+                <p
+                    className='HealthDashboard__lastEvaluated'
+                    data-testid='admin.health.last_evaluated--text'
+                >
                     <FormattedMessage
                         id='admin.health_dashboard.last_evaluated'
                         defaultMessage='Last evaluated {time}'
@@ -164,6 +169,7 @@ const HealthDashboard = ({findings, mutedFindings, lastEvaluatedAt, actions}: Pr
                         type='button'
                         className={classNames('HealthDashboard__mutedToggle', {'HealthDashboard__mutedToggle--active': showMuted})}
                         aria-pressed={showMuted}
+                        data-testid='admin.health.show_muted--togglebutton'
                         onClick={toggleMuted}
                     >
                         <BellOffOutlineIcon
@@ -202,6 +208,7 @@ const HealthDashboard = ({findings, mutedFindings, lastEvaluatedAt, actions}: Pr
                     <div
                         id={panelId}
                         role='tabpanel'
+                        data-testid='admin.health.findings--tabpanel'
                         aria-labelledby={tabId(idPrefix, tab)}
                     >
                         {visible.length === 0 ? (
