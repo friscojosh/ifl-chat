@@ -475,7 +475,7 @@ function ChannelSettingsInfoTab({
     return (
         <div
             className='ChannelSettingsModal__infoTab'
-            data-testid='channel-settings-info-tab'
+            data-testid='channel_settings_modal.info'
         >
             {/* ConvertConfirmModal for channel privacy changes */}
             <ConvertConfirmModal
@@ -504,6 +504,7 @@ function ChannelSettingsInfoTab({
                 <ChannelNameFormField
                     value={displayName}
                     name='channel-settings-name'
+                    testIdScope='channel_settings_modal.info'
                     label={formatMessage(channelKindMessages.nameLabel[channelKind])}
                     placeholder={formatMessage(messages.namePlaceholder[channelKind])}
                     onDisplayNameChange={(name) => {
@@ -553,7 +554,7 @@ function ChannelSettingsInfoTab({
                         checked={discoverable}
                         disabled={!canManageDiscoverability}
                         onChange={handleDiscoverableToggle}
-                        data-testid='channel-settings-discoverable-toggle'
+                        data-testid='channel_settings_modal.info.discoverable--switch'
                         tabIndex={0}
                         semiBold={true}
                         secondaryLabel={discoverableDescription}
@@ -574,6 +575,7 @@ function ChannelSettingsInfoTab({
             {showDefaultCategoryField && (
                 <CategorySelector
                     value={defaultCategoryName}
+                    testIdScope='channel_settings_modal.info.default_category'
                     onChange={setDefaultCategoryName}
                     getOptions={getSidebarCategoryNamesForTeam.current}
                     menuPortalTargetId='channelSettingsModal'
@@ -585,6 +587,7 @@ function ChannelSettingsInfoTab({
             {showManagedCategoryField && (
                 <CategorySelector
                     value={managedCategoryName}
+                    testIdScope='channel_settings_modal.info.managed_category'
                     onChange={setManagedCategoryName}
                     getOptions={getSidebarCategoryNamesForTeam.current}
                     label={formatMessage({id: 'managed_category.label', defaultMessage: 'Managed category (optional)'})}
@@ -598,6 +601,7 @@ function ChannelSettingsInfoTab({
             {!isDMorGroupChannel && (
                 <AdvancedTextbox
                     id='channel_settings_purpose_textbox'
+                    testId='channel_settings_modal.info.purpose'
                     value={channelPurpose}
                     channelId={channel.id}
                     onChange={handlePurposeChange}
@@ -619,6 +623,7 @@ function ChannelSettingsInfoTab({
             {/* Channel Header Section*/}
             <AdvancedTextbox
                 id='channel_settings_header_textbox'
+                testId='channel_settings_modal.info.header'
                 value={channelHeader}
                 channelId={channel.id}
                 onChange={handleHeaderChange}
@@ -644,6 +649,7 @@ function ChannelSettingsInfoTab({
                     <ChannelInfoAttributes
                         ref={attributesRef}
                         channelId={channel.id}
+                        testId='channel_settings_modal.info.attributes'
                         deferred={true}
                         onPendingChange={setHasAttributeChanges}
                     />
@@ -653,6 +659,7 @@ function ChannelSettingsInfoTab({
             {/* SaveChangesPanel for unsaved changes */}
             {((canManageChannelProperties || canManageChannelRoles) && shouldShowPanel) && (
                 <SaveChangesPanel
+                    testId='channel_settings_modal.save_panel'
                     handleSubmit={handleSaveChanges}
                     handleCancel={handleCancel}
                     handleClose={handleClose}

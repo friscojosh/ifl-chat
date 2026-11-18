@@ -179,11 +179,11 @@ describe('components/channel_settings_modal/ChannelSettingsPermissionsPolicyTab'
     const openNewRuleEditor = async () => {
         const view = renderWithContext(<ChannelSettingsPermissionsPolicyTab {...baseProps}/>, initialState);
 
-        const addRuleButton = await screen.findByTestId('permissions-policy-add-rule');
+        const addRuleButton = await screen.findByTestId('channel_settings_modal.permissions_policy.add_rule--button');
         await waitFor(() => expect(addRuleButton).toBeEnabled());
         await userEvent.click(addRuleButton);
 
-        await screen.findByTestId('permissions-policy-editor');
+        await screen.findByTestId('channel_settings_modal.permissions_policy.editor');
 
         return view;
     };
@@ -203,7 +203,7 @@ describe('components/channel_settings_modal/ChannelSettingsPermissionsPolicyTab'
         const view = renderWithContext(<ChannelSettingsPermissionsPolicyTab {...props}/>, initialState);
 
         await userEvent.click(await screen.findByText('Existing rule'));
-        await screen.findByTestId('permissions-policy-editor');
+        await screen.findByTestId('channel_settings_modal.permissions_policy.editor');
 
         return view;
     };
@@ -233,10 +233,10 @@ describe('components/channel_settings_modal/ChannelSettingsPermissionsPolicyTab'
         expect(await screen.findByText('Board permission rules')).toBeInTheDocument();
         expect(screen.queryByText('Channel permission rules')).not.toBeInTheDocument();
 
-        const addRuleButton = await screen.findByTestId('permissions-policy-add-rule');
+        const addRuleButton = await screen.findByTestId('channel_settings_modal.permissions_policy.add_rule--button');
         await waitFor(() => expect(addRuleButton).toBeEnabled());
         await userEvent.click(addRuleButton);
-        await screen.findByTestId('permissions-policy-editor');
+        await screen.findByTestId('channel_settings_modal.permissions_policy.editor');
 
         expect(screen.getByText('Applies only to guest accounts in this board')).toBeInTheDocument();
         expect(screen.getByText('Allow users to attach files to messages in this board')).toBeInTheDocument();
@@ -259,7 +259,7 @@ describe('components/channel_settings_modal/ChannelSettingsPermissionsPolicyTab'
             initialState,
         );
 
-        const addRuleButton = await screen.findByTestId('permissions-policy-add-rule');
+        const addRuleButton = await screen.findByTestId('channel_settings_modal.permissions_policy.add_rule--button');
         await waitFor(() => {
             expect(addRuleButton).not.toBeDisabled();
         });
@@ -289,7 +289,7 @@ describe('components/channel_settings_modal/ChannelSettingsPermissionsPolicyTab'
             initialState,
         );
 
-        const addRuleButton = await screen.findByTestId('permissions-policy-add-rule');
+        const addRuleButton = await screen.findByTestId('channel_settings_modal.permissions_policy.add_rule--button');
         await waitFor(() => {
             expect(addRuleButton).not.toBeDisabled();
         });
@@ -312,13 +312,13 @@ describe('components/channel_settings_modal/ChannelSettingsPermissionsPolicyTab'
         // permission (regression guard for MM-69505 where "Upload files" was
         // selected by default).
         expect(screen.getByText('Add a permission to this rule')).toBeInTheDocument();
-        expect(screen.queryByTestId(`permissions-policy-editor-action-${ACCESS_CONTROL_ACTION_UPLOAD_FILE}`)).not.toBeInTheDocument();
+        expect(screen.queryByTestId('channel_settings_modal.permissions_policy.editor.permissions.permission:0')).not.toBeInTheDocument();
     });
 
     test('new rule offers both file permissions to add since none are pre-selected', async () => {
         await openNewRuleEditor();
 
-        await userEvent.click(await screen.findByTestId('permissions-policy-editor-add-permission'));
+        await userEvent.click(await screen.findByTestId('channel_settings_modal.permissions_policy.editor.add_permission--button'));
 
         // Assert on the option descriptions, which only render inside the
         // "Add permission" dropdown (the selected-permission table rows show
@@ -331,21 +331,21 @@ describe('components/channel_settings_modal/ChannelSettingsPermissionsPolicyTab'
     test('a new rule with no permissions selected fails validation on save', async () => {
         await openNewRuleEditor();
 
-        await userEvent.type(await screen.findByTestId('permissions-policy-editor-name'), 'My rule');
-        await userEvent.click(screen.getByTestId('permissions-policy-editor-save'));
+        await userEvent.type(await screen.findByTestId('channel_settings_modal.permissions_policy.editor.name--textbox'), 'My rule');
+        await userEvent.click(screen.getByTestId('channel_settings_modal.permissions_policy.editor.save--button'));
 
         // The empty default now makes the "at least one permission" rule
         // reachable for brand-new rules; saving without one is rejected.
-        expect(await screen.findByTestId('permissions-policy-editor-error')).toHaveTextContent('Select at least one permission action for each rule.');
+        expect(await screen.findByTestId('channel_settings_modal.permissions_policy.editor.error--text')).toHaveTextContent('Select at least one permission action for each rule.');
     });
 
     test('adding the upload permission shows it in the rule', async () => {
         await openNewRuleEditor();
 
-        await userEvent.click(await screen.findByTestId('permissions-policy-editor-add-permission'));
+        await userEvent.click(await screen.findByTestId('channel_settings_modal.permissions_policy.editor.add_permission--button'));
         await userEvent.click(screen.getByTestId(`cpp-add-permission-${ACCESS_CONTROL_ACTION_UPLOAD_FILE}`));
 
-        expect(await screen.findByTestId(`permissions-policy-editor-action-${ACCESS_CONTROL_ACTION_UPLOAD_FILE}`)).toBeInTheDocument();
+        expect(await screen.findByTestId('channel_settings_modal.permissions_policy.editor.permissions.permission:0')).toBeInTheDocument();
     });
 
     test('preserves all field values when saving a new rule with an empty name', async () => {
@@ -353,22 +353,22 @@ describe('components/channel_settings_modal/ChannelSettingsPermissionsPolicyTab'
 
         // Sanity: the form is fully populated before saving.
         expect(screen.getByTestId('table-editor-value')).toHaveTextContent(EXPRESSION);
-        expect(within(screen.getByTestId('permissions-policy-editor-role')).getByText('Channel admin')).toBeInTheDocument();
-        expect(screen.getByTestId(`permissions-policy-editor-action-${ACCESS_CONTROL_ACTION_UPLOAD_FILE}`)).toBeInTheDocument();
-        expect(screen.getByTestId(`permissions-policy-editor-action-${ACCESS_CONTROL_ACTION_DOWNLOAD_FILE}`)).toBeInTheDocument();
+        expect(within(screen.getByTestId('channel_settings_modal.permissions_policy.editor.role--button')).getByText('Channel admin')).toBeInTheDocument();
+        expect(screen.getByTestId('channel_settings_modal.permissions_policy.editor.permissions.permission:0')).toBeInTheDocument();
+        expect(screen.getByTestId('channel_settings_modal.permissions_policy.editor.permissions.permission:1')).toBeInTheDocument();
 
         // Save with the Name field left empty.
-        await userEvent.click(screen.getByTestId('permissions-policy-editor-save'));
+        await userEvent.click(screen.getByTestId('channel_settings_modal.permissions_policy.editor.save--button'));
 
         // The validation error is surfaced...
-        expect(await screen.findByTestId('permissions-policy-editor-error')).toHaveTextContent('Each permission rule needs a unique name.');
+        expect(await screen.findByTestId('channel_settings_modal.permissions_policy.editor.error--text')).toHaveTextContent('Each permission rule needs a unique name.');
 
         // ...and the editor stays open with every previously entered value intact.
-        expect(screen.getByTestId('permissions-policy-editor')).toBeInTheDocument();
+        expect(screen.getByTestId('channel_settings_modal.permissions_policy.editor')).toBeInTheDocument();
         expect(screen.getByTestId('table-editor-value')).toHaveTextContent(EXPRESSION);
-        expect(within(screen.getByTestId('permissions-policy-editor-role')).getByText('Channel admin')).toBeInTheDocument();
-        expect(screen.getByTestId(`permissions-policy-editor-action-${ACCESS_CONTROL_ACTION_UPLOAD_FILE}`)).toBeInTheDocument();
-        expect(screen.getByTestId(`permissions-policy-editor-action-${ACCESS_CONTROL_ACTION_DOWNLOAD_FILE}`)).toBeInTheDocument();
+        expect(within(screen.getByTestId('channel_settings_modal.permissions_policy.editor.role--button')).getByText('Channel admin')).toBeInTheDocument();
+        expect(screen.getByTestId('channel_settings_modal.permissions_policy.editor.permissions.permission:0')).toBeInTheDocument();
+        expect(screen.getByTestId('channel_settings_modal.permissions_policy.editor.permissions.permission:1')).toBeInTheDocument();
 
         // Nothing was persisted because the rule never validated.
         expect(mockActions.saveChannelPolicy).not.toHaveBeenCalled();
@@ -377,31 +377,31 @@ describe('components/channel_settings_modal/ChannelSettingsPermissionsPolicyTab'
     test('commits the rule to the list once a name is provided', async () => {
         await openNewRuleEditorWithFields();
 
-        await userEvent.type(screen.getByTestId('permissions-policy-editor-name'), 'Block uploads');
-        await userEvent.click(screen.getByTestId('permissions-policy-editor-save'));
+        await userEvent.type(screen.getByTestId('channel_settings_modal.permissions_policy.editor.name--textbox'), 'Block uploads');
+        await userEvent.click(screen.getByTestId('channel_settings_modal.permissions_policy.editor.save--button'));
 
         // The editor closes and the new rule appears in the list with both permissions.
         expect(await screen.findByText('Block uploads')).toBeInTheDocument();
         expect(screen.getByText('2 permissions')).toBeInTheDocument();
-        expect(screen.queryByTestId('permissions-policy-editor')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('channel_settings_modal.permissions_policy.editor')).not.toBeInTheDocument();
     });
 
     test('reseeds defaults when the new-rule editor is reopened after cancel', async () => {
         await openNewRuleEditorWithFields();
 
         // Abandon the half-filled draft.
-        await userEvent.click(screen.getByTestId('permissions-policy-editor-cancel'));
+        await userEvent.click(screen.getByTestId('channel_settings_modal.permissions_policy.editor.cancel--button'));
 
         // Reopen the new-rule editor.
-        await userEvent.click(await screen.findByTestId('permissions-policy-add-rule'));
+        await userEvent.click(await screen.findByTestId('channel_settings_modal.permissions_policy.add_rule--button'));
         await screen.findByTestId('table-editor');
 
         // A fresh editor shows defaults, not the abandoned draft.
         expect(screen.getByTestId('table-editor-value')).toBeEmptyDOMElement();
-        expect(within(screen.getByTestId('permissions-policy-editor-role')).getByText('Channel member')).toBeInTheDocument();
+        expect(within(screen.getByTestId('channel_settings_modal.permissions_policy.editor.role--button')).getByText('Channel member')).toBeInTheDocument();
         expect(screen.getByText('Add a permission to this rule')).toBeInTheDocument();
-        expect(screen.queryByTestId(`permissions-policy-editor-action-${ACCESS_CONTROL_ACTION_UPLOAD_FILE}`)).not.toBeInTheDocument();
-        expect(screen.queryByTestId(`permissions-policy-editor-action-${ACCESS_CONTROL_ACTION_DOWNLOAD_FILE}`)).not.toBeInTheDocument();
+        expect(screen.queryByTestId('channel_settings_modal.permissions_policy.editor.permissions.permission:0')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('channel_settings_modal.permissions_policy.editor.permissions.permission:1')).not.toBeInTheDocument();
     });
 
     test('deletes the channel policy when saving after removing the only permission rule', async () => {
@@ -430,7 +430,7 @@ describe('components/channel_settings_modal/ChannelSettingsPermissionsPolicyTab'
         expect(await screen.findByText('No permission rules yet. Click "Add rule" to create one.')).toBeInTheDocument();
 
         // Save the now-empty rule set.
-        await userEvent.click(await screen.findByTestId('SaveChangesPanel__save-btn'));
+        await userEvent.click(await screen.findByTestId('channel_settings_modal.save_panel.save--button'));
 
         // The empty policy is removed rather than saved, so no error appears.
         await waitFor(() => {
@@ -477,14 +477,14 @@ describe('components/channel_settings_modal/ChannelSettingsPermissionsPolicyTab'
 
         // Delete the only rule and persist (triggers channel-policy delete).
         await userEvent.click(await screen.findByTestId(/^permissions-policy-row-delete-/));
-        await userEvent.click(await screen.findByTestId('SaveChangesPanel__save-btn'));
+        await userEvent.click(await screen.findByTestId('channel_settings_modal.save_panel.save--button'));
         await waitFor(() => {
             expect(mockActions.deleteChannelPolicy).toHaveBeenCalledWith('channel_id');
         });
         expect(await screen.findByText('Settings saved')).toBeInTheDocument();
 
         // Without closing the tab, add a new rule and save again.
-        const addRuleButton = await screen.findByTestId('permissions-policy-add-rule');
+        const addRuleButton = await screen.findByTestId('channel_settings_modal.permissions_policy.add_rule--button');
         await waitFor(() => expect(addRuleButton).toBeEnabled());
         await userEvent.click(addRuleButton);
         await screen.findByTestId('table-editor');
@@ -492,11 +492,11 @@ describe('components/channel_settings_modal/ChannelSettingsPermissionsPolicyTab'
             latestTableEditorProps().onChange(EXPRESSION);
         });
         await userEvent.click(screen.getByTestId(`cpp-add-permission-${ACCESS_CONTROL_ACTION_UPLOAD_FILE}`));
-        await userEvent.type(screen.getByTestId('permissions-policy-editor-name'), 'Recreated rule');
-        await userEvent.click(screen.getByTestId('permissions-policy-editor-save'));
+        await userEvent.type(screen.getByTestId('channel_settings_modal.permissions_policy.editor.name--textbox'), 'Recreated rule');
+        await userEvent.click(screen.getByTestId('channel_settings_modal.permissions_policy.editor.save--button'));
 
         expect(await screen.findByText('Recreated rule')).toBeInTheDocument();
-        await userEvent.click(await screen.findByTestId('SaveChangesPanel__save-btn'));
+        await userEvent.click(await screen.findByTestId('channel_settings_modal.save_panel.save--button'));
 
         await waitFor(() => {
             expect(mockActions.saveChannelPolicy).toHaveBeenCalledTimes(1);
@@ -533,7 +533,7 @@ describe('components/channel_settings_modal/ChannelSettingsPermissionsPolicyTab'
         await userEvent.click(await screen.findByTestId(/^permissions-policy-row-delete-/));
         expect(await screen.findByText('No permission rules yet. Click "Add rule" to create one.')).toBeInTheDocument();
 
-        await userEvent.click(await screen.findByTestId('SaveChangesPanel__save-btn'));
+        await userEvent.click(await screen.findByTestId('channel_settings_modal.save_panel.save--button'));
 
         // The policy is saved with only the membership rule; it is not deleted.
         await waitFor(() => {
@@ -565,7 +565,7 @@ describe('components/channel_settings_modal/ChannelSettingsPermissionsPolicyTab'
         renderWithContext(<ChannelSettingsPermissionsPolicyTab {...baseProps}/>, initialState);
 
         await userEvent.click(await screen.findByTestId(/^permissions-policy-row-delete-/));
-        await userEvent.click(await screen.findByTestId('SaveChangesPanel__save-btn'));
+        await userEvent.click(await screen.findByTestId('channel_settings_modal.save_panel.save--button'));
 
         expect(await screen.findByText('Settings saved')).toBeInTheDocument();
         expect(mockActions.saveChannelPolicy).not.toHaveBeenCalled();
@@ -591,7 +591,7 @@ describe('components/channel_settings_modal/ChannelSettingsPermissionsPolicyTab'
         renderWithContext(<ChannelSettingsPermissionsPolicyTab {...baseProps}/>, initialState);
 
         await userEvent.click(await screen.findByTestId(/^permissions-policy-row-delete-/));
-        await userEvent.click(await screen.findByTestId('SaveChangesPanel__save-btn'));
+        await userEvent.click(await screen.findByTestId('channel_settings_modal.save_panel.save--button'));
 
         await waitFor(() => {
             expect(mockActions.saveChannelPolicy).toHaveBeenCalledTimes(1);
@@ -622,7 +622,7 @@ describe('components/channel_settings_modal/ChannelSettingsPermissionsPolicyTab'
         renderWithContext(<ChannelSettingsPermissionsPolicyTab {...baseProps}/>, initialState);
 
         await userEvent.click(await screen.findByTestId(/^permissions-policy-row-delete-/));
-        await userEvent.click(await screen.findByTestId('SaveChangesPanel__save-btn'));
+        await userEvent.click(await screen.findByTestId('channel_settings_modal.save_panel.save--button'));
 
         expect(await screen.findByText('boom')).toBeInTheDocument();
         expect(mockActions.saveChannelPolicy).not.toHaveBeenCalled();
@@ -653,14 +653,14 @@ describe('components/channel_settings_modal/ChannelSettingsPermissionsPolicyTab'
         act(() => {
             latestTableEditorProps().onChange(newExpression);
         });
-        await userEvent.clear(screen.getByTestId('permissions-policy-editor-name'));
-        await userEvent.click(screen.getByTestId('permissions-policy-editor-save'));
+        await userEvent.clear(screen.getByTestId('channel_settings_modal.permissions_policy.editor.name--textbox'));
+        await userEvent.click(screen.getByTestId('channel_settings_modal.permissions_policy.editor.save--button'));
 
         // Error surfaces, editor stays open, and the in-progress edit survives.
-        expect(await screen.findByTestId('permissions-policy-editor-error')).toHaveTextContent('Each permission rule needs a unique name.');
-        expect(screen.getByTestId('permissions-policy-editor')).toBeInTheDocument();
+        expect(await screen.findByTestId('channel_settings_modal.permissions_policy.editor.error--text')).toHaveTextContent('Each permission rule needs a unique name.');
+        expect(screen.getByTestId('channel_settings_modal.permissions_policy.editor')).toBeInTheDocument();
         expect(screen.getByTestId('table-editor-value')).toHaveTextContent(newExpression);
-        expect(screen.getByTestId(`permissions-policy-editor-action-${ACCESS_CONTROL_ACTION_UPLOAD_FILE}`)).toBeInTheDocument();
+        expect(screen.getByTestId('channel_settings_modal.permissions_policy.editor.permissions.permission:0')).toBeInTheDocument();
     });
 
     test('reports unsaved changes to the modal while a rule is open in the editor', async () => {
@@ -675,7 +675,7 @@ describe('components/channel_settings_modal/ChannelSettingsPermissionsPolicyTab'
             expect(setAreThereUnsavedChanges).toHaveBeenLastCalledWith(true);
         });
 
-        await userEvent.click(screen.getByTestId('permissions-policy-editor-cancel'));
+        await userEvent.click(screen.getByTestId('channel_settings_modal.permissions_policy.editor.cancel--button'));
 
         await waitFor(() => {
             expect(setAreThereUnsavedChanges).toHaveBeenLastCalledWith(false);
@@ -696,7 +696,7 @@ describe('components/channel_settings_modal/ChannelSettingsPermissionsPolicyTab'
 
         // The same floating footer the rest of the modal uses, in its error state.
         expect(await screen.findByText('You have unsaved changes')).toBeInTheDocument();
-        expect(screen.getByTestId('SaveChangesPanel__save-btn')).toBeDisabled();
+        expect(screen.getByTestId('channel_settings_modal.save_panel.save--button')).toBeDisabled();
 
         // The modal clears the flag on a timeout.
         rerender(
@@ -734,10 +734,10 @@ describe('components/channel_settings_modal/ChannelSettingsPermissionsPolicyTab'
             />,
         );
 
-        await userEvent.click(await screen.findByTestId('SaveChangesPanel__cancel-btn'));
+        await userEvent.click(await screen.findByTestId('channel_settings_modal.save_panel.cancel--button'));
 
         // Back on the rules list, with the rule the editor was showing intact.
-        expect(screen.queryByTestId('permissions-policy-editor')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('channel_settings_modal.permissions_policy.editor')).not.toBeInTheDocument();
         expect(screen.getByText('Existing rule')).toBeInTheDocument();
     });
 
@@ -746,8 +746,8 @@ describe('components/channel_settings_modal/ChannelSettingsPermissionsPolicyTab'
         await screen.findByTestId('table-editor');
 
         const newExpression = 'user.attributes.team == "ops"';
-        await userEvent.clear(screen.getByTestId('permissions-policy-editor-name'));
-        await userEvent.type(screen.getByTestId('permissions-policy-editor-name'), 'Renamed rule');
+        await userEvent.clear(screen.getByTestId('channel_settings_modal.permissions_policy.editor.name--textbox'));
+        await userEvent.type(screen.getByTestId('channel_settings_modal.permissions_policy.editor.name--textbox'), 'Renamed rule');
         act(() => {
             latestTableEditorProps().onChange(newExpression);
         });
@@ -762,16 +762,16 @@ describe('components/channel_settings_modal/ChannelSettingsPermissionsPolicyTab'
         expect(await screen.findByText('You have unsaved changes')).toBeInTheDocument();
 
         // The message asks the user to save the rule, so the rule has to survive it.
-        expect(screen.getByTestId('permissions-policy-editor-name')).toHaveValue('Renamed rule');
+        expect(screen.getByTestId('channel_settings_modal.permissions_policy.editor.name--textbox')).toHaveValue('Renamed rule');
         expect(screen.getByTestId('table-editor-value')).toHaveTextContent(newExpression);
     });
 
     test('keeps a save validation error visible when a section switch is blocked', async () => {
         const {rerender} = await openExistingRuleEditor();
 
-        await userEvent.clear(screen.getByTestId('permissions-policy-editor-name'));
-        await userEvent.click(screen.getByTestId('permissions-policy-editor-save'));
-        expect(await screen.findByTestId('permissions-policy-editor-error')).toHaveTextContent('Each permission rule needs a unique name.');
+        await userEvent.clear(screen.getByTestId('channel_settings_modal.permissions_policy.editor.name--textbox'));
+        await userEvent.click(screen.getByTestId('channel_settings_modal.permissions_policy.editor.save--button'));
+        expect(await screen.findByTestId('channel_settings_modal.permissions_policy.editor.error--text')).toHaveTextContent('Each permission rule needs a unique name.');
 
         // A blocked section switch must not overwrite the reason the rule
         // cannot be saved in the first place.
@@ -782,7 +782,7 @@ describe('components/channel_settings_modal/ChannelSettingsPermissionsPolicyTab'
             />,
         );
 
-        expect(screen.getByTestId('permissions-policy-editor-error')).toHaveTextContent('Each permission rule needs a unique name.');
+        expect(screen.getByTestId('channel_settings_modal.permissions_policy.editor.error--text')).toHaveTextContent('Each permission rule needs a unique name.');
         expect(screen.getByText('You have unsaved changes')).toBeInTheDocument();
     });
 });

@@ -191,7 +191,7 @@ jest.mock('components/settings_sidebar', () => {
             <div data-testid='settings-sidebar'>
                 {visibleTabs.map((tab) => (
                     <button
-                        data-testid={`${tab.name}-tab-button`}
+                        data-testid={`channel_settings_modal.tabs.tab:${tab.name}--tab`}
                         key={tab.name}
                         role='tab'
                         aria-selected={activeTab === tab.name}
@@ -522,7 +522,7 @@ describe('ChannelSettingsModal', () => {
         const testState = makeTestState();
 
         renderWithContext(<ChannelSettingsModal {...baseProps}/>, testState);
-        await userEvent.click(screen.getByTestId('configuration-tab-button'));
+        await userEvent.click(screen.getByTestId('channel_settings_modal.tabs.tab:configuration--tab'));
         expect(screen.queryByTestId('banner-section')).not.toBeInTheDocument();
     });
 
@@ -531,7 +531,7 @@ describe('ChannelSettingsModal', () => {
         testState.entities.general.license.SkuShortName = 'professional';
 
         renderWithContext(<ChannelSettingsModal {...baseProps}/>, testState);
-        await userEvent.click(screen.getByTestId('configuration-tab-button'));
+        await userEvent.click(screen.getByTestId('channel_settings_modal.tabs.tab:configuration--tab'));
         expect(screen.queryByTestId('banner-section')).not.toBeInTheDocument();
     });
 
@@ -540,7 +540,7 @@ describe('ChannelSettingsModal', () => {
         testState.entities.general.license.SkuShortName = 'enterprise';
 
         renderWithContext(<ChannelSettingsModal {...baseProps}/>, testState);
-        await userEvent.click(screen.getByTestId('configuration-tab-button'));
+        await userEvent.click(screen.getByTestId('channel_settings_modal.tabs.tab:configuration--tab'));
         expect(screen.queryByTestId('banner-section')).not.toBeInTheDocument();
     });
 
@@ -549,7 +549,7 @@ describe('ChannelSettingsModal', () => {
         testState.entities.general.license.SkuShortName = 'advanced';
 
         renderWithContext(<ChannelSettingsModal {...baseProps}/>, testState);
-        await userEvent.click(screen.getByTestId('configuration-tab-button'));
+        await userEvent.click(screen.getByTestId('channel_settings_modal.tabs.tab:configuration--tab'));
         expect(screen.getByTestId('banner-section')).toBeInTheDocument();
     });
 
@@ -557,7 +557,7 @@ describe('ChannelSettingsModal', () => {
         const testState = makeTestState();
 
         renderWithContext(<ChannelSettingsModal {...baseProps}/>, testState);
-        await userEvent.click(screen.getByTestId('configuration-tab-button'));
+        await userEvent.click(screen.getByTestId('channel_settings_modal.tabs.tab:configuration--tab'));
         expect(screen.getByTestId('join-leave-section')).toBeInTheDocument();
     });
 
@@ -566,7 +566,7 @@ describe('ChannelSettingsModal', () => {
         testState.entities.channels.channels[channelId].type = General.DM_CHANNEL;
 
         renderWithContext(<ChannelSettingsModal {...baseProps}/>, testState);
-        expect(screen.queryByTestId('configuration-tab-button')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('channel_settings_modal.tabs.tab:configuration--tab')).not.toBeInTheDocument();
     });
 
     it('should not show configuration tab for GM channel (join/leave not applicable to GMs)', async () => {
@@ -574,7 +574,7 @@ describe('ChannelSettingsModal', () => {
         testState.entities.channels.channels[channelId].type = General.GM_CHANNEL;
 
         renderWithContext(<ChannelSettingsModal {...baseProps}/>, testState);
-        expect(screen.queryByTestId('configuration-tab-button')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('channel_settings_modal.tabs.tab:configuration--tab')).not.toBeInTheDocument();
     });
 
     it('should show configuration tab when Connected Workspaces enabled and user has manage_shared_channels', async () => {
@@ -584,7 +584,7 @@ describe('ChannelSettingsModal', () => {
         testState.entities.general.config.ExperimentalSharedChannels = 'true';
 
         renderWithContext(<ChannelSettingsModal {...baseProps}/>, testState);
-        expect(screen.getByTestId('configuration-tab-button')).toBeInTheDocument();
+        expect(screen.getByTestId('channel_settings_modal.tabs.tab:configuration--tab')).toBeInTheDocument();
     });
 
     describe('Access Control tab visibility', () => {
@@ -939,13 +939,13 @@ describe('ChannelSettingsModal', () => {
             await userEvent.click(screen.getByTestId('pluggable-set-unsaved-changes'));
 
             await waitFor(() => {
-                expect(screen.getByTestId('SaveChangesPanel__save-btn')).toBeInTheDocument();
+                expect(screen.getByTestId('channel_settings_modal.save_panel.save--button')).toBeInTheDocument();
             });
 
             await userEvent.click(screen.getByRole('tab', {name: /info/i}));
 
             await waitFor(() => {
-                expect(screen.getByTestId('SaveChangesPanel__save-btn')).toBeDisabled();
+                expect(screen.getByTestId('channel_settings_modal.save_panel.save--button')).toBeDisabled();
             });
         });
 
@@ -971,10 +971,10 @@ describe('ChannelSettingsModal', () => {
 
             await userEvent.click(screen.getByTestId('pluggable-set-unsaved-changes'));
             await waitFor(() => {
-                expect(screen.getByTestId('SaveChangesPanel__save-btn')).toBeInTheDocument();
+                expect(screen.getByTestId('channel_settings_modal.save_panel.save--button')).toBeInTheDocument();
             });
 
-            await userEvent.click(screen.getByTestId('SaveChangesPanel__save-btn'));
+            await userEvent.click(screen.getByTestId('channel_settings_modal.save_panel.save--button'));
 
             expect(getPluginSaveMock('plugin-tab-1')).not.toHaveBeenCalled();
         });
@@ -994,17 +994,17 @@ describe('ChannelSettingsModal', () => {
             const closeButton = screen.getByLabelText(/close/i);
             await userEvent.click(closeButton);
             await waitFor(() => {
-                expect(screen.getByTestId('SaveChangesPanel__save-btn')).toBeDisabled();
+                expect(screen.getByTestId('channel_settings_modal.save_panel.save--button')).toBeDisabled();
             });
 
-            await userEvent.click(screen.getByTestId('SaveChangesPanel__cancel-btn'));
+            await userEvent.click(screen.getByTestId('channel_settings_modal.save_panel.cancel--button'));
             expect(getPluginResetMock(registration.id)).toHaveBeenCalled();
 
             await userEvent.click(screen.getByTestId('pluggable-set-unsaved-changes'));
             await userEvent.click(closeButton);
 
             await waitFor(() => {
-                expect(screen.getByTestId('SaveChangesPanel__save-btn')).toBeDisabled();
+                expect(screen.getByTestId('channel_settings_modal.save_panel.save--button')).toBeDisabled();
             });
             expect(baseProps.onExited).not.toHaveBeenCalled();
         });
@@ -1027,17 +1027,17 @@ describe('ChannelSettingsModal', () => {
                 const closeButton = screen.getByLabelText(/close/i);
                 await user.click(closeButton);
                 await waitFor(() => {
-                    expect(screen.getByTestId('SaveChangesPanel__save-btn')).toBeDisabled();
+                    expect(screen.getByTestId('channel_settings_modal.save_panel.save--button')).toBeDisabled();
                 });
 
                 act(() => {
                     jest.advanceTimersByTime(3000);
                 });
 
-                await user.click(screen.getByTestId('SaveChangesPanel__save-btn'));
+                await user.click(screen.getByTestId('channel_settings_modal.save_panel.save--button'));
 
                 await waitFor(() => {
-                    expect(screen.queryByTestId('SaveChangesPanel__save-btn')).not.toBeInTheDocument();
+                    expect(screen.queryByTestId('channel_settings_modal.save_panel.save--button')).not.toBeInTheDocument();
                 });
                 expect(getPluginSaveMock(registration.id)).toHaveBeenCalled();
 
@@ -1045,7 +1045,7 @@ describe('ChannelSettingsModal', () => {
                 await user.click(closeButton);
 
                 await waitFor(() => {
-                    expect(screen.getByTestId('SaveChangesPanel__save-btn')).toBeDisabled();
+                    expect(screen.getByTestId('channel_settings_modal.save_panel.save--button')).toBeDisabled();
                 });
                 expect(baseProps.onExited).not.toHaveBeenCalled();
             } finally {
@@ -1072,19 +1072,19 @@ describe('ChannelSettingsModal', () => {
                 const closeButton = screen.getByLabelText(/close/i);
                 await user.click(closeButton);
                 await waitFor(() => {
-                    expect(screen.getByTestId('SaveChangesPanel__save-btn')).toBeDisabled();
+                    expect(screen.getByTestId('channel_settings_modal.save_panel.save--button')).toBeDisabled();
                 });
 
                 act(() => {
                     jest.advanceTimersByTime(3000);
                 });
 
-                await user.click(screen.getByTestId('SaveChangesPanel__save-btn'));
+                await user.click(screen.getByTestId('channel_settings_modal.save_panel.save--button'));
 
                 await waitFor(() => {
                     expect(getPluginSaveMock(registration.id)).toHaveBeenCalled();
                 });
-                expect(screen.getByTestId('SaveChangesPanel__save-btn')).toBeInTheDocument();
+                expect(screen.getByTestId('channel_settings_modal.save_panel.save--button')).toBeInTheDocument();
 
                 await user.click(closeButton);
                 act(() => {
@@ -1166,7 +1166,7 @@ describe('ChannelSettingsModal', () => {
 
             expect(screen.getByRole('radio', {name: 'Red'})).toBeChecked();
             expect(screen.getByRole('radio', {name: 'Blue'})).not.toBeChecked();
-            expect(screen.queryByTestId('SaveChangesPanel__save-btn')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('channel_settings_modal.save_panel.save--button')).not.toBeInTheDocument();
         });
 
         it('collects values and calls onSave, then clears the save bar', async () => {
@@ -1183,17 +1183,17 @@ describe('ChannelSettingsModal', () => {
             await userEvent.click(screen.getByRole('radio', {name: 'Blue'}));
 
             await waitFor(() => {
-                expect(screen.getByTestId('SaveChangesPanel__save-btn')).toBeInTheDocument();
+                expect(screen.getByTestId('channel_settings_modal.save_panel.save--button')).toBeInTheDocument();
             });
 
-            await userEvent.click(screen.getByTestId('SaveChangesPanel__save-btn'));
+            await userEvent.click(screen.getByTestId('channel_settings_modal.save_panel.save--button'));
 
             await waitFor(() => {
                 expect(onSave).toHaveBeenCalledWith({color: 'blue'}, expect.objectContaining({id: channelId}));
             });
 
             await waitFor(() => {
-                expect(screen.queryByTestId('SaveChangesPanel__save-btn')).not.toBeInTheDocument();
+                expect(screen.queryByTestId('channel_settings_modal.save_panel.save--button')).not.toBeInTheDocument();
             });
         });
 
@@ -1211,17 +1211,17 @@ describe('ChannelSettingsModal', () => {
             await userEvent.click(screen.getByRole('radio', {name: 'Blue'}));
 
             await waitFor(() => {
-                expect(screen.getByTestId('SaveChangesPanel__cancel-btn')).toBeInTheDocument();
+                expect(screen.getByTestId('channel_settings_modal.save_panel.cancel--button')).toBeInTheDocument();
             });
 
-            await userEvent.click(screen.getByTestId('SaveChangesPanel__cancel-btn'));
+            await userEvent.click(screen.getByTestId('channel_settings_modal.save_panel.cancel--button'));
 
             await waitFor(() => {
                 expect(screen.getByRole('radio', {name: 'Red'})).toBeChecked();
             });
 
             expect(onSave).not.toHaveBeenCalled();
-            expect(screen.queryByTestId('SaveChangesPanel__save-btn')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('channel_settings_modal.save_panel.save--button')).not.toBeInTheDocument();
         });
 
         it('keeps the tab dirty when onSave rejects', async () => {
@@ -1238,16 +1238,16 @@ describe('ChannelSettingsModal', () => {
             await userEvent.click(screen.getByRole('radio', {name: 'Blue'}));
 
             await waitFor(() => {
-                expect(screen.getByTestId('SaveChangesPanel__save-btn')).toBeInTheDocument();
+                expect(screen.getByTestId('channel_settings_modal.save_panel.save--button')).toBeInTheDocument();
             });
 
-            await userEvent.click(screen.getByTestId('SaveChangesPanel__save-btn'));
+            await userEvent.click(screen.getByTestId('channel_settings_modal.save_panel.save--button'));
 
             await waitFor(() => {
                 expect(onSave).toHaveBeenCalled();
             });
 
-            expect(screen.getByTestId('SaveChangesPanel__save-btn')).toBeInTheDocument();
+            expect(screen.getByTestId('channel_settings_modal.save_panel.save--button')).toBeInTheDocument();
         });
     });
 

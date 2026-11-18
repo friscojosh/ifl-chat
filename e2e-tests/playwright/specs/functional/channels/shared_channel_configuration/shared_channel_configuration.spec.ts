@@ -7,6 +7,10 @@ import {
     hasCustomPermissionsSchemesLicense,
     hasSharedChannelsLicense,
     test,
+    closeChannelSettings,
+    openChannelSettingsConfigurationTab,
+    Api,
+    settle,
 } from '@mattermost/playwright-lib';
 
 /**
@@ -98,7 +102,7 @@ test.describe('Shared channel configuration', () => {
         });
 
         const channelSettingsModal = await channelsPage.openChannelSettings();
-        const configurationTab = await channelSettingsModal.openConfigurationTab();
+        const configurationTab = await openChannelSettingsConfigurationTab(channelSettingsModal);
 
         await expect
             .poll(
@@ -109,13 +113,13 @@ test.describe('Shared channel configuration', () => {
                             EnableRemoteClusterService: true,
                         },
                     });
-                    return configurationTab.shareWithConnectedWorkspacesSection.isVisible();
+                    return configurationTab.workspaces.container.locator.isVisible();
                 },
                 {timeout: 60000, intervals: [500, 1500, 3000]},
             )
             .toBe(true);
-        await expect(configurationTab.shareWithWorkspacesToggle).toBeVisible();
-        await channelSettingsModal.close();
+        await expect(configurationTab.shareWithWorkspacesSwitch).toBeVisible();
+        await closeChannelSettings(channelSettingsModal);
     });
 
     test('Section hidden when shared channels feature is disabled', async ({pw}) => {
@@ -143,10 +147,10 @@ test.describe('Shared channel configuration', () => {
         await channelsPage.toBeVisible();
 
         const channelSettingsModal = await channelsPage.openChannelSettings();
-        const configurationTab = await channelSettingsModal.openConfigurationTab();
+        const configurationTab = await openChannelSettingsConfigurationTab(channelSettingsModal);
 
-        await expect(configurationTab.shareWithConnectedWorkspacesSection).not.toBeVisible();
-        await channelSettingsModal.close();
+        await expect(configurationTab.workspaces).not.toBeVisible();
+        await closeChannelSettings(channelSettingsModal);
     });
 
     test('Section when no connected workspace exists', async ({pw}) => {
@@ -180,7 +184,7 @@ test.describe('Shared channel configuration', () => {
         await channelsPage.toBeVisible();
 
         const channelSettingsModal = await channelsPage.openChannelSettings();
-        const configurationTab = await channelSettingsModal.openConfigurationTab();
+        const configurationTab = await openChannelSettingsConfigurationTab(channelSettingsModal);
 
         await expect
             .poll(
@@ -191,16 +195,16 @@ test.describe('Shared channel configuration', () => {
                             EnableRemoteClusterService: true,
                         },
                     });
-                    return configurationTab.shareWithConnectedWorkspacesSection.isVisible();
+                    return configurationTab.workspaces.container.locator.isVisible();
                 },
                 {timeout: 60000, intervals: [2000, 4000]},
             )
             .toBe(true);
 
-        await expect(configurationTab.shareWithWorkspacesToggle).toBeVisible();
+        await expect(configurationTab.shareWithWorkspacesSwitch).toBeVisible();
         // When sharing is disabled and no workspaces are configured, the toggle is simply off.
-        await expect(configurationTab.shareWithWorkspacesToggle).not.toBeChecked();
-        await channelSettingsModal.close();
+        await expect(configurationTab.shareWithWorkspacesSwitch).not.toBeOn();
+        await closeChannelSettings(channelSettingsModal);
     });
 
     test('Section hidden for users without Shared channel manager role', async ({pw}) => {
@@ -243,10 +247,10 @@ test.describe('Shared channel configuration', () => {
         await channelsPage.toBeVisible();
 
         const channelSettingsModal = await channelsPage.openChannelSettings();
-        const configurationTab = await channelSettingsModal.openConfigurationTab();
+        const configurationTab = await openChannelSettingsConfigurationTab(channelSettingsModal);
 
-        await expect(configurationTab.shareWithConnectedWorkspacesSection).not.toBeVisible();
-        await channelSettingsModal.close();
+        await expect(configurationTab.workspaces).not.toBeVisible();
+        await closeChannelSettings(channelSettingsModal);
     });
 
     test('Enable sharing toggle, verify UI persistence after refresh, disable sharing toggle', async ({pw}) => {
@@ -293,11 +297,15 @@ test.describe('Shared channel configuration', () => {
 
         // Enable sharing via UI
         let channelSettingsModal = await channelsPage.openChannelSettings();
-        let configurationTab = await channelSettingsModal.openConfigurationTab();
-        await configurationTab.enableShareWithWorkspaces();
-        await configurationTab.addFirstAvailableWorkspace();
-        await configurationTab.save();
-        await channelSettingsModal.close();
+        let configurationTab = await openChannelSettingsConfigurationTab(channelSettingsModal);
+        await configurationTab.shareWithWorkspacesSwitch.set(true);
+        await expect(configurationTab.shareWithWorkspacesSwitch).toBeOn();
+        await configurationTab.workspaces.addButton.click();
+        await expect(configurationTab.workspaces.addMenu.workspaceList).not.toHaveKeyCount(0);
+        await (await configurationTab.workspaces.addMenu.workspaceList.first()).click();
+        await expect(channelSettingsModal.savePanel.saveButton).toBeVisible();
+        await settle(channelSettingsModal.savePanel.saveButton, {wait: Api.InviteRemoteClusterToChannel}).click();
+        await closeChannelSettings(channelSettingsModal);
 
         // Verify sharing persisted via API
         const updatedChannel = await adminClient.getChannel(channel.id);
@@ -310,9 +318,9 @@ test.describe('Shared channel configuration', () => {
         await channelsPage.page.reload();
         await channelsPage.toBeVisible();
         channelSettingsModal = await channelsPage.openChannelSettings();
-        configurationTab = await channelSettingsModal.openConfigurationTab();
-        await expect(configurationTab.shareWithWorkspacesToggle).toBeChecked();
-        await channelSettingsModal.close();
+        configurationTab = await openChannelSettingsConfigurationTab(channelSettingsModal);
+        await expect(configurationTab.shareWithWorkspacesSwitch).toBeOn();
+        await closeChannelSettings(channelSettingsModal);
 
         // Disable sharing via API (uninvite workspaces) to avoid async UI race conditions.
         // Keep the server-level feature enabled so the section remains visible.
@@ -330,9 +338,9 @@ test.describe('Shared channel configuration', () => {
         await channelsPage.page.reload();
         await channelsPage.toBeVisible();
         channelSettingsModal = await channelsPage.openChannelSettings();
-        configurationTab = await channelSettingsModal.openConfigurationTab();
-        await expect(configurationTab.shareWithWorkspacesToggle).not.toBeChecked();
-        await channelSettingsModal.close();
+        configurationTab = await openChannelSettingsConfigurationTab(channelSettingsModal);
+        await expect(configurationTab.shareWithWorkspacesSwitch).not.toBeOn();
+        await closeChannelSettings(channelSettingsModal);
     });
 
     test('UI updates after permission change', async ({pw}) => {
@@ -387,7 +395,7 @@ test.describe('Shared channel configuration', () => {
         });
 
         let channelSettingsModal = await channelsPage.openChannelSettings();
-        let configurationTab = await channelSettingsModal.openConfigurationTab();
+        let configurationTab = await openChannelSettingsConfigurationTab(channelSettingsModal);
         await expect
             .poll(
                 async () => {
@@ -397,12 +405,12 @@ test.describe('Shared channel configuration', () => {
                             EnableRemoteClusterService: true,
                         },
                     });
-                    return configurationTab.shareWithConnectedWorkspacesSection.isVisible();
+                    return configurationTab.workspaces.container.locator.isVisible();
                 },
                 {timeout: 60000, intervals: [2000, 4000]},
             )
             .toBe(true);
-        await channelSettingsModal.close();
+        await closeChannelSettings(channelSettingsModal);
 
         const withoutPermission = (systemRole.permissions as string[]).filter((p) => p !== 'manage_shared_channels');
         await adminClient.patchRole(systemRole.id, {permissions: withoutPermission});
@@ -414,14 +422,14 @@ test.describe('Shared channel configuration', () => {
         await channelsPage.page.reload();
         await channelsPage.toBeVisible();
         channelSettingsModal = await channelsPage.openChannelSettings();
-        configurationTab = await channelSettingsModal.openConfigurationTab();
+        configurationTab = await openChannelSettingsConfigurationTab(channelSettingsModal);
         await expect
-            .poll(async () => !(await configurationTab.shareWithConnectedWorkspacesSection.isVisible()), {
+            .poll(async () => !(await configurationTab.workspaces.container.locator.isVisible()), {
                 timeout: 45000,
                 intervals: [1000, 2000, 3000],
             })
             .toBe(true);
-        await channelSettingsModal.close();
+        await closeChannelSettings(channelSettingsModal);
     });
 
     test('User with manage shared channels but not manage channel properties: opens settings on Configuration tab, Info tab not visible', async ({
@@ -484,13 +492,13 @@ test.describe('Shared channel configuration', () => {
         });
 
         const channelSettingsModal = await channelsPage.openChannelSettings();
-        await channelSettingsModal.toBeVisible();
+        await expect(channelSettingsModal).toBeVisible();
 
-        await expect(channelSettingsModal.configurationTab).toBeVisible();
-        await expect(channelSettingsModal.infoTab).toHaveCount(0);
-        await expect(channelSettingsModal.configurationSettings.container).toBeVisible();
-        await expect(channelSettingsModal.configurationSettings.shareWithConnectedWorkspacesSection).toBeVisible();
+        await expect(channelSettingsModal.tabs.tab('configuration').locator).toBeVisible();
+        await expect(channelSettingsModal.tabs.tab('info').locator).toHaveCount(0);
+        await expect(channelSettingsModal.configuration).toBeVisible();
+        await expect(channelSettingsModal.configuration.workspaces).toBeVisible();
 
-        await channelSettingsModal.close();
+        await closeChannelSettings(channelSettingsModal);
     });
 });

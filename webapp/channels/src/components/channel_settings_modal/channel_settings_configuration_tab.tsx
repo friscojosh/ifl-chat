@@ -849,12 +849,13 @@ function ChannelSettingsConfigurationTab({
     return (
         <div
             className={`ChannelSettingsModal__configurationTab${showSaveChangesPanel ? ' ChannelSettingsModal__configurationTab--with-save-panel' : ''}`}
-            data-testid='channel-settings-configuration-tab'
+            data-testid='channel_settings_modal.configuration'
         >
             {canManageSharedChannels && (
                 <>
                     <ConfirmModal
                         id='removeSharingConfirmModal'
+                        testId='remove_sharing_modal'
                         show={showRemoveSharingConfirmModal}
                         title={confirmModalMessages.removeSharingModalTitle}
                         message={confirmModalMessages.removeSharingModalMessage}
@@ -892,7 +893,7 @@ function ChannelSettingsConfigurationTab({
                         size='medium'
                         checked={classificationEnabled}
                         onChange={handleClassificationToggle}
-                        data-testid='channelClassificationToggle-button'
+                        data-testid='channel_settings_modal.configuration.classification--switch'
                         tabIndex={0}
                         semiBold={true}
                         secondaryLabel={formatMessage(messages.classificationDescription[channelKind])}
@@ -927,7 +928,7 @@ function ChannelSettingsConfigurationTab({
                                 <div className='setting_body'>
                                     <DropdownInput
                                         name='channelClassificationLevel'
-                                        testId='channelClassificationLevel'
+                                        testId='channel_settings_modal.configuration.classification_level'
                                         options={classificationOptions}
                                         value={selectedClassificationOption}
                                         onChange={handleClassificationLevelChange}
@@ -956,7 +957,7 @@ function ChannelSettingsConfigurationTab({
                         checked={bannerSectionOn}
                         disabled={bannerLockedByClassification || bannerRequiredByAttribute}
                         onChange={handleBannerToggle}
-                        data-testid='channelBannerToggle-button'
+                        data-testid='channel_settings_modal.configuration.banner--switch'
                         tabIndex={0}
                         semiBold={true}
                         secondaryLabel={bannerSubHeading}
@@ -980,6 +981,7 @@ function ChannelSettingsConfigurationTab({
                                     {channelAttributesEnabled ? (
                                         <>
                                             <BannerTextEditor
+                                                testId='channel_settings_modal.configuration.banner_text'
                                                 value={updatedChannelBanner.text ?? ''}
                                                 attributes={resolvedAttributes}
                                                 onChange={handleBannerTextChange}
@@ -995,6 +997,7 @@ function ChannelSettingsConfigurationTab({
                                     ) : (
                                         <AdvancedTextbox
                                             id='channel_banner_banner_text_textbox'
+                                            testId='channel_settings_modal.configuration.banner_text'
                                             value={updatedChannelBanner.text!}
                                             channelId={channel.id}
                                             onKeyPress={() => {}}
@@ -1024,6 +1027,7 @@ function ChannelSettingsConfigurationTab({
                                 <div className='setting_body'>
                                     <ColorInput
                                         id='channel_banner_banner_background_color_picker'
+                                        testIdScope='channel_settings_modal.configuration.banner_color'
                                         onChange={handleBannerColorChange}
                                         value={previewBackgroundColor ?? ''}
                                         isDisabled={bannerLockedByClassification || bannerColorLockedByClassification || bannerWillNotDisplay}
@@ -1045,6 +1049,7 @@ function ChannelSettingsConfigurationTab({
                                             to the saved banner there would preview something the author has
                                             just deleted. */}
                                         <BannerPreview
+                                            testId='channel_settings_modal.configuration.banner_preview'
                                             template={updatedChannelBanner.text ?? classificationBanner.bannerText ?? ''}
                                             attributes={resolvedAttributes}
                                             backgroundColor={previewBackgroundColor}
@@ -1067,7 +1072,7 @@ function ChannelSettingsConfigurationTab({
                     size='medium'
                     checked={!disableJoinLeaveMessages}
                     onChange={handleJoinLeaveMessagesToggle}
-                    data-testid='channelJoinLeaveMessagesToggle-button'
+                    data-testid='channel_settings_modal.configuration.join_leave_messages--switch'
                     tabIndex={0}
                     semiBold={true}
                     secondaryLabel={joinLeaveMessagesSubHeading}
@@ -1086,7 +1091,7 @@ function ChannelSettingsConfigurationTab({
                     size='medium'
                     checked={isChannelAutotranslated}
                     onChange={handleAutoTranslationToggle}
-                    data-testid='channelTranslationToggle-button'
+                    data-testid='channel_settings_modal.configuration.autotranslation--switch'
                     tabIndex={0}
                     semiBold={true}
                     secondaryLabel={autoTranslationSubHeading}
@@ -1097,6 +1102,7 @@ function ChannelSettingsConfigurationTab({
 
             {showSaveChangesPanel && (
                 <SaveChangesPanel
+                    testId='channel_settings_modal.save_panel'
                     handleSubmit={handleSaveChanges}
                     handleCancel={handleCancel}
                     handleClose={handleClose}
