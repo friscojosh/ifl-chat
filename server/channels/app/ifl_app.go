@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -123,6 +124,11 @@ func (a *App) IFLMirrorActiveChange(rctx request.CTX, target *model.User, active
 		action = "restore"
 	}
 	res, err := ifl.NewSiteClient(cfg).Suspension(rctx.Context(), *target.AuthData, action, actorUsername)
+	if !active && errors.Is(err, ifl.ErrNoSiteAccount) {
+		// The site account is gone (deleted); there is nothing to suspend, so
+		// chat may deactivate or delete. A restore still needs a site account.
+		return nil
+	}
 	if err != nil {
 		return model.NewAppError("IFLMirrorActiveChange", "ifl.suspension.site_refused", map[string]any{"Reason": err.Error()}, "", http.StatusConflict)
 	}

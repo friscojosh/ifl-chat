@@ -4,12 +4,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"regexp"
 	"time"
 )
+
+// ErrNoSiteAccount means iflgm.com answered that it has no account with this
+// id (its own JSON "User not found", not a bare 404 from a misrouted proxy).
+var ErrNoSiteAccount = errors.New("iflgm.com has no account with this id")
 
 type SuspensionResult struct {
 	Suspended bool    `json:"suspended"`
@@ -64,6 +69,9 @@ func (s *SiteClient) Suspension(ctx context.Context, siteID string, action, acto
 			Error string `json:"error"`
 		}
 		_ = json.Unmarshal(raw, &e)
+		if resp.StatusCode == http.StatusNotFound && e.Error == "User not found" {
+			return nil, ErrNoSiteAccount
+		}
 		if e.Error == "" {
 			e.Error = resp.Status
 		}

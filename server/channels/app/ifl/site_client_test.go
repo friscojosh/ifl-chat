@@ -3,6 +3,7 @@ package ifl
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -155,5 +156,30 @@ func TestSuspensionRejectsUnknownAction(t *testing.T) {
 	}
 	if called.Load() {
 		t.Fatal("request sent for an unknown action")
+	}
+}
+
+func TestSuspensionNoSiteAccount(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"error":"User not found"}`))
+	}))
+	defer srv.Close()
+	_, err := clientFor(srv.URL).Suspension(context.Background(), "42", "suspend", "comm")
+	if !errors.Is(err, ErrNoSiteAccount) {
+		t.Fatalf("err %v", err)
+	}
+}
+
+func TestSuspensionBare404IsRefusal(t *testing.T) {
+	// A misrouted proxy's 404 must not read as "no site account".
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`<html>404 Not Found</html>`))
+	}))
+	defer srv.Close()
+	_, err := clientFor(srv.URL).Suspension(context.Background(), "42", "suspend", "comm")
+	if err == nil || errors.Is(err, ErrNoSiteAccount) {
+		t.Fatalf("err %v", err)
 	}
 }
