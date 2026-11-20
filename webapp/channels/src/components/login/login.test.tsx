@@ -784,14 +784,15 @@ describe('components/login/Login', () => {
         let startSignIn: jest.SpyInstance;
 
         beforeEach(() => {
-            localStorage.removeItem('ifl_signed_out');
-            sessionStorage.removeItem('ifl_signin_attempt');
+            IFLSignin.clearSignedOut();
+            IFLSignin.clearAttempt();
             jest.mocked(isDesktopApp).mockReturnValue(false);
             startSignIn = jest.spyOn(IFLSignin, 'startSignIn').mockImplementation(() => {});
         });
 
         afterEach(() => {
             jest.mocked(isDesktopApp).mockReturnValue(false);
+            jest.restoreAllMocks();
             startSignIn.mockRestore();
         });
 
@@ -881,6 +882,82 @@ describe('components/login/Login', () => {
             }
 
             expect(startSignIn).not.toHaveBeenCalled();
+        });
+
+        it('forwards only redirect_to: any other parameter shows the button', () => {
+            for (const query of ['t=invite', 'id=abc', 'desktop_token=x', 'login_hint=a%40b.c', 'foo=1', 'redirect_to=%2Fifl&t=invite', 'redirect_to=%2Fa&redirect_to=%2Fb']) {
+                const {unmount} = renderAt(iflState, `/login?${query}`);
+                expect(screen.getByRole('link', {name: 'Sign in with iflgm.com'})).toBeInTheDocument();
+                unmount();
+            }
+
+            expect(startSignIn).not.toHaveBeenCalled();
+        });
+
+        it('does not redirect for a redirect_to that is not a relative path', () => {
+            for (const target of ['//evil.example', 'https://evil.example/', 'data:text/html,x', 'ifl/channels']) {
+                const {unmount} = renderAt(iflState, `/login?redirect_to=${encodeURIComponent(target)}`);
+                unmount();
+            }
+
+            expect(startSignIn).not.toHaveBeenCalled();
+        });
+
+        it('redirects with no query when there is no redirect_to', () => {
+            renderAt(iflState, '/login');
+
+            expect(startSignIn).toHaveBeenCalledWith(`${Client4.getOAuthRoute()}/gitlab/login`);
+        });
+
+        it('does not redirect when the session expired, and shows the notice', () => {
+            LocalStorageStore.setWasLoggedIn(true);
+            renderAt(iflState, '/login');
+
+            expect(startSignIn).not.toHaveBeenCalled();
+            expect(screen.getByText('Your session has expired. Please log in again.')).toBeInTheDocument();
+            expect(screen.getByRole('link', {name: 'Sign in with iflgm.com'})).toBeInTheDocument();
+        });
+
+        it('does not redirect a signed-in user', () => {
+            const state = mergeObjects(iflState, {entities: {users: {currentUserId: 'user1'}}});
+            renderAt(state, '/login');
+
+            expect(startSignIn).not.toHaveBeenCalled();
+        });
+
+        it('does not redirect while the store is initializing, then decides once it is ready', () => {
+            const state = mergeObjects(iflState, {storage: {initialized: false}});
+            const {replaceStoreState} = renderAt(state, '/login');
+            expect(startSignIn).not.toHaveBeenCalled();
+
+            replaceStoreState(iflState);
+            expect(startSignIn).toHaveBeenCalledTimes(1);
+        });
+
+        it('fails closed when storage cannot be read', () => {
+            jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+                throw new Error('blocked');
+            });
+
+            expect(IFLSignin.wasSignedOut()).toBe(true);
+            expect(IFLSignin.hasRecentAttempt()).toBe(true);
+            expect(IFLSignin.autoSignInUrl(true, '', '/oauth')).toBeNull();
+        });
+
+        it('keeps marks in memory when storage cannot be written', () => {
+            jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+                throw new Error('blocked');
+            });
+
+            expect(IFLSignin.wasSignedOut()).toBe(false);
+            IFLSignin.markSignedOut();
+            expect(IFLSignin.wasSignedOut()).toBe(true);
+
+            IFLSignin.clearSignedOut();
+            expect(IFLSignin.hasRecentAttempt()).toBe(false);
+            IFLSignin.recordAttempt();
+            expect(IFLSignin.hasRecentAttempt()).toBe(true);
+            expect(IFLSignin.autoSignInUrl(true, '', '/oauth')).toBeNull();
         });
 
         it('does not redirect in the desktop app', () => {

@@ -152,11 +152,11 @@ const Login = ({onCustomizeHeader}: LoginProps) => {
 
     const [desktopLoginLink, setDesktopLoginLink] = useState('');
 
-    // IFL: iflgm.com (the gitlab option) is the only sign-in method, so the page goes straight to it
-    // unless the URL carries a message, the member just signed out, or a recent attempt came back here.
+    // IFL: iflgm.com (the gitlab option) is the only sign-in method, so the page may go straight to it
+    // (decided in an effect below, after session-expiry detection; rules in ./ifl_signin).
     const iflOnlyIflgm = enableSignUpWithGitLab && !(enableBaseLogin || enableSignUpWithGoogle || enableSignUpWithOffice365 || enableSignUpWithOpenId || enableSignUpWithSaml || enableGuestMagicLink);
-    const iflGitLabUrl = `${Client4.getOAuthRoute()}/gitlab/login${search}`;
-    const [iflAutoSignIn] = useState(() => !currentUser && IFL.shouldAutoSignIn(iflOnlyIflgm, search));
+    const [iflAutoSignIn, setIflAutoSignIn] = useState(false);
+    const iflDecided = useRef(false);
 
     const getExternalLoginOptions = () => {
         const externalLoginOptions: ExternalLoginButtonType[] = [];
@@ -551,11 +551,20 @@ const Login = ({onCustomizeHeader}: LoginProps) => {
         }
     }, [hasError]);
 
-    useEffect(() => { // IFL: go straight to iflgm.com, with the URL the button would use
-        if (iflAutoSignIn && !initializing) {
-            IFL.startSignIn(iflGitLabUrl);
+    useEffect(() => { // IFL: decide once, after the mount effect's session-expiry check and with currentUser resolved
+        if (iflDecided.current || initializing) {
+            return;
         }
-    }, [iflAutoSignIn, initializing]);
+        iflDecided.current = true;
+        if (currentUser || sessionExpired || LocalStorageStore.getWasLoggedIn()) {
+            return;
+        }
+        const url = IFL.autoSignInUrl(iflOnlyIflgm, search, Client4.getOAuthRoute());
+        if (url) {
+            setIflAutoSignIn(true);
+            IFL.startSignIn(url);
+        }
+    }, [initializing, currentUser, sessionExpired, iflOnlyIflgm, search]);
 
     if (initializing) {
         return (<LoadingScreen/>);

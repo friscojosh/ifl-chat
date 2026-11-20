@@ -24,48 +24,102 @@ const SIGNED_OUT_KEY = 'ifl_signed_out';
 const ATTEMPT_KEY = 'ifl_signin_attempt';
 export const IFL_ATTEMPT_WINDOW_MS = 2 * 60 * 1000;
 
-// Query parameters that carry something to show the member (or a flow the
-// redirect must not cut short). redirect_to is not one: it is forwarded.
-const BLOCKING_PARAMS = ['extra', 'error', 'message', 'server_token'];
+// The only query parameter the automatic sign-in forwards. Anything else
+// (invite, desktop, hint or message parameters) means the page shows the button.
+const ALLOWED_PARAM = 'redirect_to';
 
-function safely<T>(fn: () => T, fallback: T): T {
-    try {
-        return fn();
-    } catch {
-        return fallback;
-    }
-}
+// The same relative-path check login.tsx applies to redirect_to.
+const RELATIVE_PATH = /^\/([^/]|$)/;
+
+// In-memory mirror, so marks hold for this page's lifetime even when storage
+// cannot be written. Reads fail closed: if storage throws, the page shows the
+// button rather than redirecting.
+let memorySignedOut = false;
+let memoryAttemptAt = 0;
 
 export function markSignedOut() {
-    safely(() => localStorage.setItem(SIGNED_OUT_KEY, '1'), undefined);
+    memorySignedOut = true;
+    try {
+        localStorage.setItem(SIGNED_OUT_KEY, '1');
+    } catch {
+        // the in-memory mark still applies
+    }
 }
 
 export function clearSignedOut() {
-    safely(() => localStorage.removeItem(SIGNED_OUT_KEY), undefined);
+    memorySignedOut = false;
+    try {
+        localStorage.removeItem(SIGNED_OUT_KEY);
+    } catch {
+        // nothing stored to clear
+    }
 }
 
 export function wasSignedOut(): boolean {
-    return safely(() => localStorage.getItem(SIGNED_OUT_KEY) === '1', false);
+    if (memorySignedOut) {
+        return true;
+    }
+    try {
+        return localStorage.getItem(SIGNED_OUT_KEY) === '1';
+    } catch {
+        return true;
+    }
 }
 
 export function recordAttempt() {
-    safely(() => sessionStorage.setItem(ATTEMPT_KEY, String(Date.now())), undefined);
+    memoryAttemptAt = Date.now();
+    try {
+        sessionStorage.setItem(ATTEMPT_KEY, String(memoryAttemptAt));
+    } catch {
+        // the in-memory mark still applies
+    }
+}
+
+export function clearAttempt() {
+    memoryAttemptAt = 0;
+    try {
+        sessionStorage.removeItem(ATTEMPT_KEY);
+    } catch {
+        // nothing stored to clear
+    }
 }
 
 export function hasRecentAttempt(): boolean {
-    const at = safely(() => Number(sessionStorage.getItem(ATTEMPT_KEY)), 0);
-    return Boolean(at) && Date.now() - at < IFL_ATTEMPT_WINDOW_MS;
+    const recent = (at: number) => Boolean(at) && Date.now() - at < IFL_ATTEMPT_WINDOW_MS;
+    if (recent(memoryAttemptAt)) {
+        return true;
+    }
+    try {
+        return recent(Number(sessionStorage.getItem(ATTEMPT_KEY)));
+    } catch {
+        return true;
+    }
 }
 
-export function shouldAutoSignIn(onlyIflgm: boolean, search: string): boolean {
-    if (!onlyIflgm || isDesktopApp() || isEmbedded()) {
-        return false;
+// The automatic sign-in URL, or null when the page should show the button.
+// Only a relative redirect_to is forwarded; any other parameter blocks it.
+export function autoSignInUrl(onlyIflgm: boolean, search: string, oauthRoute: string): string | null {
+    if (!onlyIflgm || isDesktopApp() || isEmbedded() || wasSignedOut() || hasRecentAttempt()) {
+        return null;
     }
     const params = new URLSearchParams(search);
-    if (BLOCKING_PARAMS.some((name) => params.has(name))) {
-        return false;
+    for (const name of params.keys()) {
+        if (name !== ALLOWED_PARAM) {
+            return null;
+        }
     }
-    return !wasSignedOut() && !hasRecentAttempt();
+    const redirectTo = params.getAll(ALLOWED_PARAM);
+    if (redirectTo.length > 1) {
+        return null;
+    }
+    const url = `${oauthRoute}/gitlab/login`;
+    if (redirectTo.length === 0) {
+        return url;
+    }
+    if (!RELATIVE_PATH.test(redirectTo[0])) {
+        return null;
+    }
+    return `${url}?${ALLOWED_PARAM}=${encodeURIComponent(redirectTo[0])}`;
 }
 
 export function startSignIn(url: string) {
