@@ -28,17 +28,19 @@ message text (`<@U123>` becomes `@<final username>`, `<#C123>` becomes
 """
 import argparse
 import collections
+import contextlib
 import hashlib
 import json
 import os
 import re
+import shutil
 import sys
 import zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # run with python -I
 from common import (DISPLAY_NAME_MAX, SLACK_GENERAL, TOWN_SQUARE,  # noqa: E402
                     MigrationError, load_chat_channels, load_chat_users,
-                    member_name, read_csv, resolve_identities, slug,
+                    member_name, open_private, read_csv, resolve_identities, slug,
                     truncate, valid_channel_name, valid_username, write_csv)
 
 SLACKBOT_USER = 'USLACKBOT'
@@ -48,6 +50,9 @@ CHANNEL_MAP_FIELDS = ['slack_id', 'slack_name', 'folder', 'mm_name', 'mm_display
                       'archived', 'delete_at', 'messages', 'reason']
 EMOJI_TOKEN = re.compile(r':([A-Za-z0-9_+\'\-]+):')
 HTML_PREFIXES = (b'<!doctype', b'<html')
+HEAD_BYTES = 64
+REJECT_SIZE = 'downloads rejected (wrong size or an HTML error page)'
+REJECT_NAME = 'downloads rejected (file name differs from the message)'
 
 NOTE_HIDDEN = "_[File not available: hidden by Slack's free-plan limit]_"
 NOTE_DELETED = '_[File deleted in Slack]_'
@@ -67,8 +72,10 @@ def plan_channels(channels, folders, chat_channels, folder_messages, bot_users=(
     records, rows, used, folder_to_mm = [], [], set(), {}
 
     def unique(name):
+        # Slack channels never take a name a chat channel (or an earlier
+        # Slack channel) already has, whatever suffix got them there.
         base, n = name, 2
-        while name in used:
+        while name in used or name in chat_channels:
             suffix = f'-{n}'
             name = base[:64 - len(suffix)] + suffix
             n += 1
@@ -113,7 +120,12 @@ def plan_channels(channels, folders, chat_channels, folder_messages, bot_users=(
         mm, reason = mm_name_for(rec['name'], rec['id'])
         if rec.get('_orphan'):
             reason = 'folder not in channels.json; imported as archived'
-        mm = unique(mm)
+        if mm == TOWN_SQUARE and rec['name'] == SLACK_GENERAL:
+            used.add(mm)
+        else:
+            wanted, mm = mm, unique(mm)
+            if mm != wanted:
+                reason = (reason + '; ' if reason else '') + 'name taken; number added'
         msgs = folder_messages.get(folder, [])
         delete_at = ''
         if rec.get('is_archived'):
@@ -175,7 +187,9 @@ def plan_users(users, identities, missing_rows, bot_names_seen, taken_names):
             name = SLACKBOT_NAME if SLACKBOT_NAME not in used else unique_bot_name(SLACKBOT_NAME, used)
             uid, real = SLACKBOT_USER, 'Slackbot'
         else:
-            name = unique_bot_name(slug(re.sub(r'\s+', '-', label), r'a-z0-9._-') or 'bot', used)
+            # No label: name the account from the bot id (stable and unique).
+            base = slug(re.sub(r'\s+', '-', label), r'a-z0-9._-') or slug('integration-' + bot_id, r'a-z0-9._-')
+            name = unique_bot_name(base, used)
             uid, real = bot_id, label or bot_id
         used.add(name)
         out.append({'id': uid, 'name': name, 'deleted': False, 'is_bot': True,
@@ -203,11 +217,15 @@ def rename_emoji(text, emoji):
     return EMOJI_TOKEN.sub(lambda m: f':{emoji.get(m.group(1), m.group(1))}:', text)
 
 
-def fix_message(m, available, emoji, stats, bot_users=None):
+def fix_message(m, available, emoji, stats, bot_users=None, username_bots=None):
     """Rewrite one Slack message in place. `available` maps file id -> True
     when its bytes will be in the prepared zip; `bot_users` maps a bot's
-    user id to its bot id."""
+    user id to its bot id; `username_bots` maps a bot's username to its bot id."""
     bot_users = bot_users or {}
+    if (m.get('subtype') == 'bot_message' and not m.get('bot_id') and not m.get('user')
+            and m.get('username') in (username_bots or {})):
+        m['bot_id'] = username_bots[m['username']]
+        stats['bot posts with only a username given their bot id'] += 1
     if m.get('user') in bot_users and not m.get('bot_id'):
         m['bot_id'] = bot_users[m['user']]  # mmetl then files it under the bot
         stats['posts by a bot user id attributed to the bot'] += 1
@@ -249,7 +267,10 @@ def fix_message(m, available, emoji, stats, bot_users=None):
             notes.append(NOTE_DELETED); stats['files deleted in Slack'] += 1
         elif f.get('is_external') and (f.get('url_private') or f.get('permalink')):
             url = f.get('url_private') or f.get('permalink')
-            notes.append(f'[{f.get("title") or f.get("name") or url}]({url})')
+            title = (f.get('title') or f.get('name') or url).replace('\\', '\\\\')
+            title = title.replace('[', '\\[').replace(']', '\\]')
+            url = url.replace(' ', '%20').replace('(', '%28').replace(')', '%29')
+            notes.append(f'[{title}]({url})')
             stats['external files kept as links'] += 1
         elif f.get('id') and f.get('name') and available.get(f['id']):
             keep.append(f); stats['files imported'] += 1
@@ -273,11 +294,24 @@ def fix_message(m, available, emoji, stats, bot_users=None):
     return m
 
 
-def good_upload(data, size):
-    head = data[:64].lstrip().lower()
-    if any(head.startswith(p) for p in HTML_PREFIXES):
+def good_upload(head, declared_size, expected_size):
+    """Judge an upload from its first bytes and its declared size, without
+    reading it all: not an HTML error page, and the size the message says."""
+    if any(head.lstrip().lower().startswith(p) for p in HTML_PREFIXES):
         return False
-    return size in (None, 0) or len(data) == size
+    return expected_size in (None, 0) or declared_size == expected_size
+
+
+def synthetic_bot_id(username):
+    return 'BUSER' + hashlib.sha1(username.encode('utf-8')).hexdigest()[:10].upper()
+
+
+def stream_zip_member(src, info, out, name):
+    """Copy one member from `src` into `out` in chunks."""
+    zi = zipfile.ZipInfo(name, date_time=(2020, 1, 1, 0, 0, 0))
+    zi.compress_type = zipfile.ZIP_DEFLATED
+    with src.open(info) as fin, out.open(zi, 'w', force_zip64=True) as fout:
+        shutil.copyfileobj(fin, fout, 1 << 20)
 
 
 # ---------------------------------------------------------------- driver
@@ -295,92 +329,144 @@ def load_emoji_map(path):
 def prepare(input_zip, upload_zips, identity_rows, chat_users, chat_channels, emoji,
             output_zip, channel_map_path, archive_state=None):
     stats = collections.Counter()
-    with zipfile.ZipFile(input_zip) as zf:
-        infos = {member_name(i): i for i in zf.infolist() if not i.is_dir()}
-        channels = json.loads(zf.read(infos['channels.json']))
-        users = json.loads(zf.read(infos['users.json']))
-        folder_files = collections.defaultdict(list)
-        for name in infos:
-            parts = name.split('/')
-            if len(parts) == 2 and parts[1].endswith('.json') and not parts[0].startswith('__'):
-                folder_files[parts[0]].append(name)
-        folder_messages = {f: [m for n in sorted(names) for m in json.loads(zf.read(infos[n]))]
-                           for f, names in folder_files.items()}
-
-        # Uploads: the input's own __uploads, then each extra archive (earlier downloads).
-        file_sizes = {}
-        bot_labels = {}
-        for msgs in folder_messages.values():
-            for m in msgs:
-                for f in (m.get('files') or []) + ([m['file']] if m.get('file') else []):
-                    if f.get('id'):
-                        file_sizes[f['id']] = f.get('size')
-                if (m.get('subtype') in ('slackbot_response', 'tombstone')
-                        or m.get('user') == SLACKBOT_USER):
-                    bot_labels[SLACKBOT_BOT] = 'Slackbot'
-                elif m.get('bot_id') or m.get('subtype') == 'bot_message':
-                    bid = m.get('bot_id') or m.get('user') or m.get('username')
-                    if bid:
-                        label = ((m.get('bot_profile') or {}).get('name') or m.get('username') or '')
-                        bot_labels.setdefault(bid, label)
-                        if not bot_labels[bid] and label:
-                            bot_labels[bid] = label
-        uploads = {}
-        sources = [zf] + [zipfile.ZipFile(p) for p in upload_zips]
-        try:
-            for src in sources:
-                for info in src.infolist():
-                    parts = member_name(info).split('/')
-                    if len(parts) != 3 or parts[0] != '__uploads' or parts[1] in uploads:
-                        continue
-                    data = src.read(info)
-                    if good_upload(data, file_sizes.get(parts[1])):
-                        uploads[parts[1]] = (parts[2], data)
-                    else:
-                        stats['downloads rejected (wrong size or an HTML error page)'] += 1
-        finally:
-            for src in sources[1:]:
-                src.close()
-        available = {fid: True for fid in uploads}
-
-        ids_in_users = {u['id'] for u in users}
-        missing_rows = [r for r in identity_rows
-                        if r['slack_id'] not in ids_in_users and r['is_bot'] != 'true']
-        identities = resolve_identities(identity_rows, chat_users)
-        out_users = plan_users(users, identities, missing_rows, bot_labels,
-                               {u['username'].lower() for u in chat_users})
-        bot_users = {u['id']: (u.get('profile') or {}).get('bot_id') or u['id']
-                     for u in users if u.get('is_bot')}
-        bot_users[SLACKBOT_USER] = SLACKBOT_BOT
-        records, map_rows, folder_to_mm = plan_channels(
-            channels, set(folder_messages), chat_channels, folder_messages, bot_users,
-            archive_state)
-
-        tmp = output_zip + '.partial'
-        with zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as out:
-            out.writestr('channels.json', json.dumps(records, ensure_ascii=False, indent=1))
-            out.writestr('users.json', json.dumps(out_users, ensure_ascii=False, indent=1))
-            for name, info in sorted(infos.items()):
-                parts = name.split('/')
-                if name in ('channels.json', 'users.json') or parts[0] == '__uploads':
-                    continue
-                if len(parts) == 2 and parts[0] in folder_to_mm and parts[1].endswith('.json'):
-                    msgs = json.loads(zf.read(info))
-                    fixed = [fix_message(m, available, emoji, stats, bot_users) for m in msgs]
-                    out.writestr(f'{folder_to_mm[parts[0]]}/{parts[1]}',
-                                 json.dumps(fixed, ensure_ascii=False, indent=1))
-                elif len(parts) == 1:
-                    out.writestr(name, zf.read(info))
-            for fid, (fname, data) in sorted(uploads.items()):
-                out.writestr(f'__uploads/{fid}/{fname}', data)
+    tmp = output_zip + '.partial'
+    try:
+        with contextlib.ExitStack() as stack:
+            zf = stack.enter_context(zipfile.ZipFile(input_zip))
+            sources = [zf] + [stack.enter_context(zipfile.ZipFile(p)) for p in upload_zips]
+            out_users, map_rows = _write_prepared(zf, sources, identity_rows, chat_users, chat_channels,
+                                                  emoji, tmp, archive_state, stats)
         os.replace(tmp, output_zip)
-    write_csv(channel_map_path, map_rows, CHANNEL_MAP_FIELDS)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+    write_csv(channel_map_path, map_rows, CHANNEL_MAP_FIELDS, private=True)
     stats['channels'] = len(map_rows)
     stats['archived channels'] = sum(1 for r in map_rows if r['archived'] == 'true')
     stats['channels renamed'] = sum(1 for r in map_rows if r['mm_name'] != r['slack_name'])
     stats['bot accounts'] = sum(1 for u in out_users if u.get('is_bot'))
     stats['people'] = sum(1 for u in out_users if not u.get('is_bot'))
     return stats
+
+
+def scan_messages(folder_messages, users):
+    """File ids -> declared size and name, bot labels, and username -> bot id."""
+    file_sizes, file_names, bot_labels, username_bots = {}, {}, {}, {}
+    for u in users:
+        bid = (u.get('profile') or {}).get('bot_id')
+        if u.get('is_bot') and bid:
+            for key in (u.get('real_name'), u.get('name')):
+                if key:
+                    username_bots.setdefault(key, bid)
+    for msgs in folder_messages.values():
+        for m in msgs:
+            if m.get('bot_id') and m.get('username'):
+                username_bots.setdefault(m['username'], m['bot_id'])
+    for msgs in folder_messages.values():
+        for m in msgs:
+            for f in (m.get('files') or []) + ([m['file']] if m.get('file') else []):
+                if f.get('id'):
+                    file_sizes[f['id']] = f.get('size')
+                    file_names.setdefault(f['id'], f.get('name'))
+            if (m.get('subtype') in ('slackbot_response', 'tombstone')
+                    or m.get('user') == SLACKBOT_USER):
+                bot_labels[SLACKBOT_BOT] = 'Slackbot'
+            elif m.get('bot_id') or m.get('subtype') == 'bot_message':
+                if not m.get('bot_id') and not m.get('user') and m.get('username'):
+                    username_bots.setdefault(m['username'], synthetic_bot_id(m['username']))
+                bid = m.get('bot_id') or m.get('user') or username_bots.get(m.get('username'))
+                if bid:
+                    label = ((m.get('bot_profile') or {}).get('name') or m.get('username') or '')
+                    bot_labels.setdefault(bid, label)
+                    if not bot_labels[bid] and label:
+                        bot_labels[bid] = label
+    return file_sizes, file_names, bot_labels, username_bots
+
+
+def choose_uploads(sources, file_sizes, file_names, stats):
+    """File id -> (published name, source, ZipInfo) for each upload that looks
+    right. Only ZipInfo and the first bytes are read; the copy streams later."""
+    uploads = {}
+    for src in sources:
+        for info in src.infolist():
+            parts = member_name(info).split('/')
+            if len(parts) != 3 or parts[0] != '__uploads' or parts[1] in uploads:
+                continue
+            fid, fname = parts[1], parts[2]
+            if fid not in file_names:
+                stats['uploads no message refers to'] += 1
+                continue
+            with src.open(info) as f:
+                head = f.read(HEAD_BYTES)
+            if not good_upload(head, info.file_size, file_sizes.get(fid)):
+                stats[REJECT_SIZE] += 1
+            elif file_names[fid] != fname:
+                stats[REJECT_NAME] += 1
+            else:
+                uploads[fid] = (fname, src, info)
+    return uploads
+
+
+def _write_prepared(zf, sources, identity_rows, chat_users, chat_channels, emoji, tmp,
+                    archive_state, stats):
+    infos = {member_name(i): i for i in zf.infolist() if not i.is_dir()}
+    channels = json.loads(zf.read(infos['channels.json']))
+    users = json.loads(zf.read(infos['users.json']))
+    folder_files = collections.defaultdict(list)
+    for name in infos:
+        parts = name.split('/')
+        if len(parts) == 2 and parts[1].endswith('.json') and not parts[0].startswith('__'):
+            folder_files[parts[0]].append(name)
+    folder_messages = {f: [m for n in sorted(names) for m in json.loads(zf.read(infos[n]))]
+                       for f, names in folder_files.items()}
+    file_sizes, file_names, bot_labels, username_bots = scan_messages(folder_messages, users)
+    uploads = choose_uploads(sources, file_sizes, file_names, stats)
+    available = {fid: True for fid in uploads}
+
+    ids_in_users = {u['id'] for u in users}
+    missing_rows = [r for r in identity_rows
+                    if r['slack_id'] not in ids_in_users and r['is_bot'] != 'true']
+    identities = resolve_identities(identity_rows, chat_users)
+    out_users = plan_users(users, identities, missing_rows, bot_labels,
+                           {u['username'].lower() for u in chat_users})
+    bot_users = {u['id']: (u.get('profile') or {}).get('bot_id') or u['id']
+                 for u in users if u.get('is_bot')}
+    bot_users[SLACKBOT_USER] = SLACKBOT_BOT
+    records, map_rows, folder_to_mm = plan_channels(
+        channels, set(folder_messages), chat_channels, folder_messages, bot_users,
+        archive_state)
+
+    with open_private(tmp, 'wb') as raw, zipfile.ZipFile(raw, 'w', zipfile.ZIP_DEFLATED) as out:
+        out.writestr('channels.json', json.dumps(records, ensure_ascii=False, indent=1))
+        out.writestr('users.json', json.dumps(out_users, ensure_ascii=False, indent=1))
+        for name, info in sorted(infos.items()):
+            parts = name.split('/')
+            if name in ('channels.json', 'users.json') or parts[0] == '__uploads':
+                continue
+            if len(parts) == 2 and parts[0] in folder_to_mm and parts[1].endswith('.json'):
+                msgs = json.loads(zf.read(info))
+                fixed = [fix_message(m, available, emoji, stats, bot_users, username_bots)
+                         for m in msgs]
+                out.writestr(f'{folder_to_mm[parts[0]]}/{parts[1]}',
+                             json.dumps(fixed, ensure_ascii=False, indent=1))
+            elif len(parts) == 1:
+                out.writestr(name, zf.read(info))
+        for fid, (fname, src, info) in sorted(uploads.items()):
+            stream_zip_member(src, info, out, f'__uploads/{fid}/{fname}')
+    return out_users, map_rows
+
+
+def same_file(a, b):
+    if os.path.realpath(a) == os.path.realpath(b):
+        return True
+    try:
+        return os.path.samefile(a, b)
+    except OSError:
+        return False
+
+
+def clash(paths, others):
+    return any(same_file(p, o) for p in paths for o in others)
 
 
 def main(argv=None):
@@ -396,8 +482,12 @@ def main(argv=None):
     ap.add_argument('--report', required=True)
     ap.add_argument('--archive-state', help='channel_counts.csv from the pre-freeze export')
     a = ap.parse_args(argv)
-    if os.path.abspath(a.output) == os.path.abspath(a.input):
-        print('error: --output must differ from --input', file=sys.stderr)
+    inputs = [a.input, *a.uploads, a.identity, a.chat_users, a.chat_channels]
+    inputs += [p for p in (a.emoji_map, a.archive_state) if p]
+    outputs = [a.output, a.channel_map, a.report]
+    if clash(outputs, inputs) or clash(outputs[:1], outputs[1:]) or clash(outputs[1:2], outputs[2:]):
+        print('error: --output, --channel-map and --report must be three different files, '
+              'none of them an input', file=sys.stderr)
         return 2
     try:
         stats = prepare(a.input, a.uploads, read_csv(a.identity), load_chat_users(a.chat_users),
