@@ -19,7 +19,8 @@ Found with `grep -rn "// IFL:" server`. Keep every one when merging upstream.
 | `server/channels/api4/user.go:1704` | Linked suspension: ban in chat is a ban on iflgm.com. |
 | `server/channels/api4/user.go:1844` | Linked suspension (second path). |
 | `server/channels/api4/user_local.go:337` | Linked suspension for local-mode (mmctl) changes. |
-| `server/channels/app/oauth.go:864` | After the site confirms eligibility: reactivate, provision, join the team. |
+| `server/channels/app/oauth.go:769` | `CompleteOAuth` signup action (bypasses `LoginByOAuth`): the same reactivation and provisioning. |
+| `server/channels/app/oauth.go:873` | `LoginByOAuth`, after the site confirms eligibility: reactivate, provision, join the team. |
 | `server/config/client.go:454` | Shows the iflgm.com sign-in as a GitLab-shaped provider. |
 | `server/channels/api4/ifl.go:1` | New file: the panel session route. |
 | `server/channels/app/ifl_app.go:1` | New file: app-level glue for `server/channels/app/ifl`. |

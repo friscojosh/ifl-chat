@@ -766,6 +766,15 @@ func (a *App) CompleteOAuth(rctx request.CTX, service string, auth *OAuthAuthori
 		return nil, appErr
 	}
 
+	// IFL: plan 4 — the signup action creates the account directly and skips
+	// LoginByOAuth's IFL hook; give it the same reactivation and provisioning.
+	if action == model.OAuthActionSignup {
+		if user, appErr = a.IFLReactivateIfNeeded(rctx, user); appErr != nil {
+			return nil, appErr
+		}
+		a.IFLProvision(rctx, user)
+	}
+
 	// A user switching from SSO to email sign-in is leaving the provider, so
 	// its claims no longer describe how they sign in.
 	if action != model.OAuthActionSSOToEmail {
