@@ -1,6 +1,6 @@
 # IFL Chat
 
-IFL Chat is the Inception Fantasy League's chat service: a fork of Mattermost Team Edition v12.1.0 (`ifl/main`). The league site, iflgm.com, is the identity provider; chat has no sign-up of its own. The fork keeps upstream code as unchanged as possible. Every IFL change is either new code under `server/channels/app/ifl/` and `server/channels/api4/ifl.go` or a small hook marked `// IFL:` in an upstream file.
+IFL Chat is the International Fantasy League's chat service: a fork of Mattermost Team Edition v12.1.0 (`ifl/main`). The league site, iflgm.com, is the identity provider; chat has no sign-up of its own. The fork keeps upstream code as unchanged as possible. Every IFL change is either new code under `server/channels/app/ifl/` and `server/channels/api4/ifl.go` or a small hook marked `// IFL:` in an upstream file.
 
 ## What the fork changes
 
