@@ -28,7 +28,7 @@ New, IFL-only code: `server/channels/app/ifl/` (config, panel token, site client
 
 ### The `en.json` exception
 
-`server/i18n/en.json` carries 20-odd `ifl.*` message strings (ids starting `ifl.`, starting at `ifl.panel.bot`). It is the one upstream edit with no `// IFL:` marker because JSON has no comments. When merging, keep all `ifl.*` entries; merge conflicts here are usually adjacent-line additions, so keep both sides.
+`server/i18n/en.json` carries six `ifl.*` message strings (`ifl.panel.*` and `ifl.suspension.*`). It is the one upstream edit with no `// IFL:` marker because JSON has no comments. When merging, keep all `ifl.*` entries; merge conflicts here are usually adjacent-line additions, so keep both sides.
 
 ## Configuration
 
