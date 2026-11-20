@@ -1,8 +1,17 @@
 package ifl
 
 import (
+	"errors"
+	"fmt"
+	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/lib/pq"
+	pkgerrors "github.com/pkg/errors"
+
+	"github.com/mattermost/mattermost/server/public/model"
+	"github.com/mattermost/mattermost/server/v8/channels/store"
 )
 
 func TestNormalizeEmail(t *testing.T) {
@@ -81,6 +90,35 @@ func TestPanelProfileChanges(t *testing.T) {
 			if got != c.want || emailChanged != c.emailChanged || nameChanged != c.nameChgd {
 				t.Fatalf("got %+v email=%v name=%v; want %+v email=%v name=%v",
 					got, emailChanged, nameChanged, c.want, c.emailChanged, c.nameChgd)
+			}
+		})
+	}
+}
+
+func TestEmailWriteStatus(t *testing.T) {
+	pqUnique := &pq.Error{Code: "23505", Message: `duplicate key value violates unique constraint "users_email_key"`}
+	pqUniqueUsername := &pq.Error{Code: "23505", Message: `duplicate key value violates unique constraint "users_username_key"`}
+	cases := []struct {
+		name string
+		err  error
+		want int
+	}{
+		{"store email conflict", store.NewErrConflict("Email", errors.New("dup"), "a@b.c"), http.StatusConflict},
+		{"store username conflict", store.NewErrConflict("Username", errors.New("dup"), "gm"), http.StatusInternalServerError},
+		{"pq email unique", pqUnique, http.StatusConflict},
+		{"pq email unique wrapped", pkgerrors.Wrapf(pqUnique, "failed to update Users with userId=%s", "x"), http.StatusConflict},
+		{"pq other unique", pkgerrors.Wrap(pqUniqueUsername, "update"), http.StatusInternalServerError},
+		{"pq other error", &pq.Error{Code: "08006", Message: "users_email_key"}, http.StatusInternalServerError},
+		{"invalid input", store.NewErrInvalidInput("User", "id", "x"), http.StatusBadRequest},
+		{"wrapped invalid input", fmt.Errorf("update: %w", store.NewErrInvalidInput("User", "email", "x")), http.StatusBadRequest},
+		{"app error", model.NewAppError("User.IsValid", "model.user.is_valid.email.app_error", nil, "", http.StatusBadRequest), http.StatusBadRequest},
+		{"not found", store.NewErrNotFound("User", "x"), http.StatusNotFound},
+		{"plain", errors.New("connection reset"), http.StatusInternalServerError},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := EmailWriteStatus(c.err); got != c.want {
+				t.Fatalf("EmailWriteStatus(%v) = %d, want %d", c.err, got, c.want)
 			}
 		})
 	}

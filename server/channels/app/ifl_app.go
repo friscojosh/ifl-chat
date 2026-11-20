@@ -15,7 +15,6 @@ import (
 	"github.com/mattermost/mattermost/server/public/shared/mlog"
 	"github.com/mattermost/mattermost/server/public/shared/request"
 	"github.com/mattermost/mattermost/server/v8/channels/app/ifl"
-	"github.com/mattermost/mattermost/server/v8/channels/store"
 )
 
 const iflPanelJTITokenType = "ifl_panel_jti"
@@ -148,46 +147,94 @@ func (a *App) IFLMirrorActiveChange(rctx request.CTX, target *model.User, active
 	return nil
 }
 
+// iflFreshUser reads a user from the master database, bypassing the user
+// cache: a cached copy can predate a ban, a demotion or another email change.
+func (a *App) iflFreshUser(rctx request.CTX, userID string) (*model.User, *model.AppError) {
+	users, err := a.Srv().Store().User().GetProfileByIds(RequestContextWithMaster(rctx), []string{userID}, nil, false)
+	if err != nil {
+		return nil, model.NewAppError("iflFreshUser", "app.user.get_by_username.app_error", nil, "", http.StatusInternalServerError).Wrap(err)
+	}
+	if len(users) == 0 {
+		return nil, model.NewAppError("iflFreshUser", MissingAccountError, nil, "", http.StatusNotFound)
+	}
+	return users[0], nil
+}
+
+// iflWriteEmail writes only the email column (Users.Email, EmailVerified,
+// UpdateAt), so a concurrent change to roles, DeleteAt or props is never
+// overwritten, then drops the cached copy.
+func (a *App) iflWriteEmail(userID, email string) error {
+	_, err := a.Srv().Store().User().VerifyEmail(userID, email)
+	a.InvalidateCacheForUser(userID)
+	return err
+}
+
 // iflSyncPanelProfile brings an existing member's email and name up to date
 // from the panel token, as LoginByOAuth's UpdateOAuthUserAttrs does at an
 // OAuth sign-in. Like upstream, an email that another account holds is
 // skipped silently, and a failed update never blocks the session.
+//
+// It works on a fresh read, never the cached user. The email is written on
+// its own column. The name goes through an untrusted store update, which
+// takes roles, DeleteAt and the email from its own master read, so a
+// concurrent ban or demotion is kept.
 func (a *App) iflSyncPanelProfile(rctx request.CTX, user *model.User, claims *ifl.PanelClaims) *model.User {
 	if !ifl.EmailSyncAllowed(user.AuthService) {
 		return user
 	}
-	cur := ifl.Profile{Email: user.Email, FirstName: user.FirstName, LastName: user.LastName}
+	fresh, appErr := a.iflFreshUser(rctx, user.Id)
+	if appErr != nil {
+		rctx.Logger().Warn("IFL: panel session could not read the member to sync email or name",
+			mlog.String("user_id", user.Id), mlog.Err(appErr))
+		return user
+	}
+	cur := ifl.Profile{Email: fresh.Email, FirstName: fresh.FirstName, LastName: fresh.LastName}
 	next, emailChanged, nameChanged := ifl.PanelProfileChanges(cur, claims.Email, claims.Name)
 	if emailChanged {
-		if holder, _ := a.GetUserByEmail(next.Email); holder != nil && holder.Id != user.Id {
-			next.Email, emailChanged = user.Email, false
+		if holder, _ := a.GetUserByEmail(next.Email); holder != nil && holder.Id != fresh.Id {
+			emailChanged = false
 		}
 	}
 	if !emailChanged && !nameChanged {
-		return user
+		return fresh
 	}
-	updated := user.DeepCopy()
-	updated.Email, updated.FirstName, updated.LastName = next.Email, next.FirstName, next.LastName
-	res, err := a.Srv().Store().User().Update(rctx, updated, true)
-	if err != nil {
-		rctx.Logger().Warn("IFL: panel session could not sync the member's email or name",
-			mlog.String("user_id", user.Id), mlog.Err(err))
-		return user
+	if emailChanged {
+		if err := a.iflWriteEmail(fresh.Id, next.Email); err != nil {
+			if ifl.EmailWriteStatus(err) != http.StatusConflict {
+				rctx.Logger().Warn("IFL: panel session could not sync the member's email",
+					mlog.String("user_id", fresh.Id), mlog.Err(err))
+			}
+		}
 	}
-	a.InvalidateCacheForUser(user.Id)
-	a.sendUpdatedUserEvent(res.New)
-	return res.New
+	if nameChanged {
+		if reread, appErr := a.iflFreshUser(rctx, fresh.Id); appErr == nil {
+			reread.FirstName, reread.LastName = next.FirstName, next.LastName
+			if _, err := a.Srv().Store().User().Update(rctx, reread, false); err != nil {
+				rctx.Logger().Warn("IFL: panel session could not sync the member's name",
+					mlog.String("user_id", fresh.Id), mlog.Err(err))
+			}
+			a.InvalidateCacheForUser(fresh.Id)
+		}
+	}
+	res, appErr := a.iflFreshUser(rctx, fresh.Id)
+	if appErr != nil {
+		return fresh
+	}
+	a.sendUpdatedUserEvent(res)
+	return res
 }
 
-// IFLUpdateEmail sets the email of a site-linked (GitLab) member with a
-// trusted update: an ordinary update keeps an OAuth user's old email
-// (store/sqlstore/user_store.go, trustedUpdateData). Used by the site's relay.
+// IFLUpdateEmail sets the email of a site-linked (GitLab) member. The upstream
+// patch route cannot: an untrusted update keeps an OAuth user's old email
+// (store/sqlstore/user_store.go, trustedUpdateData). Only the email column is
+// written, from a fresh read, so a concurrent ban or demotion is never undone.
+// Used by the site's relay.
 func (a *App) IFLUpdateEmail(rctx request.CTX, userID, email string) (*model.User, *model.AppError) {
 	normalized, ok := ifl.NormalizeEmail(email)
 	if !ok {
 		return nil, model.NewAppError("IFLUpdateEmail", "ifl.email.invalid", nil, "", http.StatusBadRequest)
 	}
-	user, appErr := a.GetUser(rctx, userID)
+	user, appErr := a.iflFreshUser(rctx, userID)
 	if appErr != nil {
 		return nil, appErr
 	}
@@ -200,17 +247,20 @@ func (a *App) IFLUpdateEmail(rctx request.CTX, userID, email string) (*model.Use
 	if holder, _ := a.GetUserByEmail(normalized); holder != nil && holder.Id != user.Id {
 		return nil, model.NewAppError("IFLUpdateEmail", "ifl.email.conflict", nil, "", http.StatusConflict)
 	}
-	updated := user.DeepCopy()
-	updated.Email = normalized
-	res, err := a.Srv().Store().User().Update(rctx, updated, true)
-	if err != nil {
-		var conErr *store.ErrConflict
-		if errors.As(err, &conErr) && conErr.Resource == "Email" {
+	if err := a.iflWriteEmail(user.Id, normalized); err != nil {
+		switch status := ifl.EmailWriteStatus(err); status {
+		case http.StatusConflict:
 			return nil, model.NewAppError("IFLUpdateEmail", "ifl.email.conflict", nil, "", http.StatusConflict).Wrap(err)
+		case http.StatusBadRequest:
+			return nil, model.NewAppError("IFLUpdateEmail", "ifl.email.invalid", nil, "", http.StatusBadRequest).Wrap(err)
+		default:
+			return nil, model.NewAppError("IFLUpdateEmail", "app.user.update.finding.app_error", nil, "", status).Wrap(err)
 		}
-		return nil, model.NewAppError("IFLUpdateEmail", "app.user.update.finding.app_error", nil, "", http.StatusInternalServerError).Wrap(err)
 	}
-	a.InvalidateCacheForUser(user.Id)
-	a.sendUpdatedUserEvent(res.New)
-	return res.New, nil
+	updated, appErr := a.iflFreshUser(rctx, user.Id)
+	if appErr != nil {
+		return nil, appErr
+	}
+	a.sendUpdatedUserEvent(updated)
+	return updated, nil
 }

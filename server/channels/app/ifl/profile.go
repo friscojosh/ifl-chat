@@ -1,9 +1,15 @@
 package ifl
 
 import (
+	"errors"
+	"net/http"
 	"strings"
 
+	"github.com/lib/pq"
+
 	"github.com/mattermost/mattermost/server/public/model"
+	"github.com/mattermost/mattermost/server/v8/channels/store"
+	"github.com/mattermost/mattermost/server/v8/channels/store/sqlstore"
 )
 
 // Profile is the part of a chat account that iflgm.com owns.
@@ -54,4 +60,33 @@ func PanelProfileChanges(cur Profile, claimEmail, claimName string) (next Profil
 		nameChanged = true
 	}
 	return next, emailChanged, nameChanged
+}
+
+// emailUniqueIndexes names the unique index on Users.Email, as the user store
+// matches it (store/sqlstore/user_store.go); on Postgres it is users_email_key.
+var emailUniqueIndexes = []string{"Email", "users_email_key", "idx_users_email_unique"}
+
+// EmailWriteStatus maps an error from writing a member's email to the HTTP
+// status to answer with: 409 when another account holds the address (a
+// store conflict or the database's unique violation), 400 for input the store
+// or model rejects, 404 for a missing user, 500 for anything else.
+func EmailWriteStatus(err error) int {
+	var conflict *store.ErrConflict
+	if errors.As(err, &conflict) && conflict.Resource == "Email" {
+		return http.StatusConflict
+	}
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) && sqlstore.IsUniqueConstraintError(pqErr, emailUniqueIndexes) {
+		return http.StatusConflict
+	}
+	var invalid *store.ErrInvalidInput
+	var appErr *model.AppError
+	if errors.As(err, &invalid) || errors.As(err, &appErr) {
+		return http.StatusBadRequest
+	}
+	var notFound *store.ErrNotFound
+	if errors.As(err, &notFound) {
+		return http.StatusNotFound
+	}
+	return http.StatusInternalServerError
 }
