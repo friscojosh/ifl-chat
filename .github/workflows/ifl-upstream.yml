@@ -1,0 +1,125 @@
+name: ifl-upstream
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    outputs:
+      tag: ${{ steps.find.outputs.tag }}
+      result: ${{ steps.merge.outputs.result }}
+      conflicts: ${{ steps.merge.outputs.conflicts }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ifl/main
+          fetch-depth: 0
+          persist-credentials: false
+      - id: find
+        name: Newest upstream release not yet in ifl/main
+        run: |
+          git remote add upstream https://github.com/mattermost/mattermost.git
+          git fetch --quiet --no-tags upstream '+refs/tags/v*:refs/tags/v*'
+          tag=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | grep -Ev -- '-(rc|beta|alpha)' | sort -V | tail -1)
+          if git merge-base --is-ancestor "$tag" HEAD; then echo "tag=" >> "$GITHUB_OUTPUT"; else echo "tag=$tag" >> "$GITHUB_OUTPUT"; fi
+      - id: merge
+        if: steps.find.outputs.tag != ''
+        name: Trial merge
+        env:
+          TAG: ${{ steps.find.outputs.tag }}
+        run: |
+          git config user.name ifl-upstream && git config user.email ifl-upstream@users.noreply.github.com
+          if git merge --no-edit "$TAG"; then
+            echo "result=clean" >> "$GITHUB_OUTPUT"
+          else
+            { echo 'conflicts<<EOF'; git diff --name-only --diff-filter=U; echo EOF; } >> "$GITHUB_OUTPUT"
+            echo "result=conflict" >> "$GITHUB_OUTPUT"
+            git merge --abort
+          fi
+      - if: steps.merge.outputs.result == 'clean'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - if: steps.merge.outputs.result == 'clean'
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: webapp/package-lock.json
+      - if: steps.merge.outputs.result == 'clean'
+        name: IFL and upstream unit tests
+        working-directory: server
+        run: |
+          make setup-go-work
+          go vet ./channels/app/ifl/ && go test ./channels/app/ifl/
+          go build ./...
+          (cd public && go test ./...)
+      - if: steps.merge.outputs.result == 'clean'
+        name: Candidate package
+        working-directory: server
+        run: make build-client build-linux-amd64 package-linux-amd64 BUILD_ENTERPRISE=false
+      - if: steps.merge.outputs.result == 'clean'
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate
+          path: server/dist/mattermost-team-linux-amd64.tar.gz
+          retention-days: 7
+  image:
+    needs: check
+    if: needs.check.outputs.result == 'clean'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ifl/main
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: candidate
+          path: server/build
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - env:
+          TAG: ${{ needs.check.outputs.tag }}
+        run: |
+          img=ghcr.io/$GITHUB_REPOSITORY:candidate-$TAG
+          docker build -f server/build/Dockerfile.ifl -t "$img" server/build
+          docker run --rm --entrypoint /mattermost/bin/mattermost "$img" version
+          docker push "$img"
+  report:
+    needs: [check, image]
+    if: always() && needs.check.outputs.tag != ''
+    runs-on: ubuntu-24.04
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.check.outputs.tag }}
+          RESULT: ${{ needs.check.outputs.result }}
+          CONFLICTS: ${{ needs.check.outputs.conflicts }}
+          IMAGE_RESULT: ${{ needs.image.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Upstream $TAG"
+          if [ "$RESULT" = conflict ]; then
+            body=$(printf 'Merging %s into ifl/main conflicts in:\n\n%s\n\nResolve by hand (IFL.md, Upstream releases). Run: %s' "$TAG" "$CONFLICTS" "$RUN_URL")
+          elif [ "$IMAGE_RESULT" = success ]; then
+            body=$(printf 'Merges cleanly; IFL and upstream unit tests pass. Candidate image: ghcr.io/%s:candidate-%s. Integrate per IFL.md, Upstream releases. Run: %s' "$GITHUB_REPOSITORY" "$TAG" "$RUN_URL")
+          else
+            body=$(printf 'Merges cleanly but tests or the candidate build failed. Run: %s' "$RUN_URL")
+          fi
+          n=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number -q '.[0].number')
+          if [ -n "$n" ]; then gh issue comment "$n" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"; fi
