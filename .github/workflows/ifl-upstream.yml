@@ -24,7 +24,7 @@ jobs:
         run: |
           git remote add upstream https://github.com/mattermost/mattermost.git
           git fetch --quiet --no-tags upstream '+refs/tags/v*:refs/tags/v*'
-          tag=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | grep -Ev -- '-(rc|beta|alpha)' | sort -V | tail -1)
+          tag=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
           if git merge-base --is-ancestor "$tag" HEAD; then echo "tag=" >> "$GITHUB_OUTPUT"; else echo "tag=$tag" >> "$GITHUB_OUTPUT"; fi
       - id: merge
         if: steps.find.outputs.tag != ''
