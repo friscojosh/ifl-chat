@@ -306,3 +306,23 @@ def test_custom_emoji_names_only_counts_usable_statuses(tmp_path):
                  'e,custom,,e_ifl,pending,,,,,\n'
                  'f,custom,,f_ifl,,,,,,\n')
     assert ri.custom_emoji_names(str(p)) == {'a_ifl', 'b_ifl', 'c_ifl'}
+
+
+def test_unverified_email_member_is_imported_unmatched_and_counted(setup):
+    tmp, args = setup
+    import csv
+    rows = list(csv.DictReader(open(tmp / 'identity_map.csv', newline='')))
+    for r in rows:
+        if r['slack_id'] == 'U2GM':
+            r['site_member'] = 'no:unverified_email'
+    with open(tmp / 'identity_map.csv', 'w', newline='') as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0]))
+        w.writeheader()
+        w.writerows(rows)
+    assert ri.main(args) == 0
+    out, _ = read_import(tmp / 'import.zip')
+    brad = {x['user']['username']: x['user'] for x in out if x['type'] == 'user'}['miami.brad']
+    assert brad['email'] == 'slack-u2gm@import.invalid'
+    assert brad['delete_at'] == NOW and not brad.get('auth_service')
+    assert 'brad@example.test' not in json.dumps(out).lower()
+    assert 'unverified site email, imported unmatched: 1' in report_of(tmp)

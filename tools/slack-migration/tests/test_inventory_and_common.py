@@ -200,3 +200,26 @@ def test_resolve_refuses_existing_account_missing_from_snapshot(identity_csv):
     rows = read_csv(identity_csv)
     with pytest.raises(MigrationError, match='josh_0.*not in the chat snapshot'):
         resolve_identities(rows, [])
+
+
+def test_unverified_email_row_is_treated_as_unmatched(identity_csv, chat_snapshot):
+    """slack-match writes site_member=no:unverified_email for a confirmed row
+    whose site email is not verified. That email must never reach the import,
+    and the account must not be linked to the site user."""
+    from common import load_chat_users
+    rows = read_csv(identity_csv)
+    rows[1]['site_member'] = 'no:unverified_email'
+    ident = resolve_identities(rows, load_chat_users(chat_snapshot[0]))['U2GM']
+    assert ident['email'] == 'slack-u2gm@import.invalid'
+    assert ident['auth_data'] is None and ident['active'] is False
+    assert ident['existing'] is False and ident['unverified_email'] is True
+    assert 'unverified_email' not in resolve_identities(
+        read_csv(identity_csv), load_chat_users(chat_snapshot[0]))['U2GM']
+
+
+def test_unverified_email_on_an_existing_chat_account_is_refused(identity_csv, chat_snapshot):
+    from common import load_chat_users
+    rows = read_csv(identity_csv)
+    rows[0]['site_member'] = 'no:unverified_email'      # josh_0 already has a chat account
+    with pytest.raises(MigrationError, match='U1JOSH.*unverified'):
+        resolve_identities(rows, load_chat_users(chat_snapshot[0]))
