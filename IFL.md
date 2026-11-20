@@ -26,7 +26,7 @@ Found with `grep -rn "// IFL:" server`. Keep every one when merging upstream.
 | `server/channels/api4/ifl.go:1` | New file: the panel session and email sync routes. |
 | `server/channels/app/ifl_app.go:1` | New file: app-level glue for `server/channels/app/ifl`. |
 
-New, IFL-only code: `server/channels/app/ifl/` (config, panel token, site client, actor, profile, tests), `server/channels/api4/ifl.go`, `server/channels/app/ifl_app.go`, `server/build/Dockerfile.ifl`, `.github/workflows/ifl-*.yml`, `tools/slack-migration/` (Slack migration tools, Python; not part of the server build), this file.
+New, IFL-only code: `server/channels/app/ifl/` (config, panel token, site client, actor, profile, tests), `server/channels/api4/ifl.go`, `server/channels/api4/ifl_test.go`, `server/channels/app/ifl_app.go`, `server/build/Dockerfile.ifl`, `.github/workflows/ifl-*.yml`, `tools/slack-migration/` (Slack migration tools, Python; not part of the server build), this file.
 
 ### The `en.json` exception
 
@@ -68,6 +68,7 @@ Done on a workstation, after an `Upstream <tag>` issue appears:
 2. `git checkout ifl/main`
 3. `git merge <tag>`; resolve any conflicts keeping every `// IFL:` hook and every `ifl.*` string in `en.json`. Take in the release's own `Dockerfile` changes by hand if relevant to `Dockerfile.ifl`.
 4. `cd server && make setup-go-work && go build ./... && go test ./channels/app/ifl/`
+   The route tests in `server/channels/api4/ifl_test.go` are not run by CI: upstream's API test helper needs a Postgres and a Redis on `localhost:6379`. To run them, start both (for example `docker run -d -p 127.0.0.1:55620:5432 -e POSTGRES_USER=mmuser -e POSTGRES_PASSWORD=mostest_password -e POSTGRES_DB=mattermost_test postgres:16` and `docker run -d -p 127.0.0.1:6379:6379 redis:7`), then `TEST_DATABASE_POSTGRESQL_DSN='postgres://mmuser:mostest_password@127.0.0.1:55620/mattermost_test?sslmode=disable' go test ./channels/api4/ -run '^TestIFL' -count=1` (about a minute once compiled).
 5. Push `ifl/main`; CI builds the image.
 6. Deploy that image to CT 122 and run the acceptance checks (sign-in, panel session, linked suspension).
 7. Close the `Upstream <tag>` issue.
