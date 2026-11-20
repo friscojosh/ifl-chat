@@ -18,7 +18,9 @@
    512 KiB, 128 x 128 stored size, 70 GIF frames. An image already within
    the limits is uploaded byte for byte. Dropped frames are reported as
    "simplified"; an animation reduced to one frame is reported as
-   "flattened".
+   "flattened" (this includes animated PNG and WebP, which are never left
+   animated when they must be re-encoded). A GIF re-encoded only to get under
+   512 KiB is reported as "simplified" with a note.
 8. Uploads with POST /api/v4/emoji as the IFL bot.
 9. A rerun compares an existing chat emoji's stored image with the prepared
    image: equal means "unchanged"; different means "failed" (never
@@ -119,12 +121,12 @@ def assign_names(entries, system):
 
 def process_image(data):
     """Return (bytes, extension, flags) within the server's limits.
-    flags ⊆ {'resized', 'simplified', 'flattened'}. Raises ValueError."""
+    flags ⊆ {'resized', 'simplified', 'flattened', 'reencoded'}. Raises ValueError."""
     from PIL import Image, ImageSequence
     img = Image.open(io.BytesIO(data))
     fmt = (img.format or '').upper()
     frames_total = getattr(img, 'n_frames', 1)
-    animated = fmt == 'GIF' and frames_total > 1
+    animated = frames_total > 1
     w, h = img.size
     fits = w <= MAX_SIDE and h <= MAX_SIDE
     if fits and len(data) <= MAX_BYTES and frames_total <= MAX_FRAMES and fmt in ('PNG', 'GIF', 'JPEG'):
@@ -134,7 +136,11 @@ def process_image(data):
     size = (max(1, round(w * scale)), max(1, round(h * scale)))
     if scale < 1:
         flags.add('resized')
-    if not animated:
+    if not animated or fmt != 'GIF':
+        # A still image, or an animated PNG/WebP that cannot be kept as is:
+        # it becomes one PNG frame, and the caller is told.
+        if animated:
+            flags.add('flattened')
         frame = img.convert('RGBA').resize(size, Image.LANCZOS)
         buf = io.BytesIO()
         frame.save(buf, 'PNG', optimize=True)
@@ -146,20 +152,23 @@ def process_image(data):
     for f in ImageSequence.Iterator(img):
         frames.append(f.convert('RGBA').resize(size, Image.LANCZOS))
         durations.append(f.info.get('duration', img.info.get('duration', 100)) or 100)
-    loop = img.info.get('loop', 0)
+    loop = img.info.get('loop')   # None: the source has no loop extension (plays once)
     step = max(1, math.ceil(len(frames) / MAX_FRAMES))
     while True:
         kept = frames[::step]
         kept_d = [sum(durations[i:i + step]) for i in range(0, len(frames), step)]
         buf = io.BytesIO()
+        opts = {} if loop is None else {'loop': loop}
         kept[0].save(buf, 'GIF', save_all=len(kept) > 1, append_images=kept[1:],
-                     duration=kept_d, loop=loop, disposal=2)
+                     duration=kept_d, disposal=2, **opts)
         out = buf.getvalue()
         if step > 1:
             flags.add('simplified')
         if len(out) <= MAX_BYTES:
             if len(kept) == 1:
                 flags.add('flattened')
+            if step == 1 and 'resized' not in flags and len(data) > MAX_BYTES:
+                flags.add('reencoded')   # same frames, same size: re-encoded only to fit
             return out, 'gif', flags
         if len(kept) == 1:
             raise ValueError(f'{len(out)} bytes even as a single frame')
@@ -168,10 +177,16 @@ def process_image(data):
 
 # ---------------------------------------------------------------- HTTP
 
+def _new_session(requests):
+    s = requests.Session()
+    s.trust_env = False   # no proxy, .netrc or CA settings from the environment
+    return s
+
+
 class SlackClient:
     def __init__(self, token, session=None):
         import requests
-        self.http = session or requests.Session()
+        self.http = session or _new_session(requests)
         self.token = token
 
     def emoji_list(self):
@@ -202,7 +217,7 @@ class ChatClient:
         if base_url.rstrip('/') not in CHAT_URLS:
             raise MigrationError(f'--chat-url must be one of {", ".join(CHAT_URLS)}')
         self.base = base_url.rstrip('/') + '/api/v4'
-        self.http = session or requests.Session()
+        self.http = session or _new_session(requests)
         self.http.headers['Authorization'] = f'Bearer {token}'
 
     def _ok(self, r, what):
@@ -221,7 +236,7 @@ class ChatClient:
     def all_emoji(self):
         out, page = {}, 0
         while True:
-            r = self._ok(self.http.get(self.base + '/emoji', params={'page': page, 'per_page': 200},
+            r = self._ok(self.http.get(self.base + '/emoji', params={'page': page, 'per_page': 200, 'sort': 'name'},
                                        timeout=30, allow_redirects=False), 'list emoji')
             batch = r.json()
             for e in batch:
@@ -243,11 +258,65 @@ class ChatClient:
 
 # ---------------------------------------------------------------- driver
 
+def _reason(err):
+    """A short failure reason that cannot carry a token: our own errors carry
+    only status codes and names; library errors are reduced to their class."""
+    from PIL import Image
+    if isinstance(err, MigrationError):
+        return str(err)
+    if isinstance(err, Image.DecompressionBombError):
+        return 'image too large (decompression bomb)'
+    if isinstance(err, ValueError):
+        return f'image: {err}'
+    return f'{type(err).__name__}'
+
+
+def _entry_errors():
+    import requests
+    from PIL import Image
+    return (MigrationError, ValueError, OSError, EOFError, SyntaxError,
+            Image.DecompressionBombError, requests.RequestException)
+
+
+def _add_note(e, text):
+    e['note'] = (e['note'] + '; ' if e['note'] else '') + text
+
+
+def _import_one(e, slack, chat, existing, creator, dry_run, images):
+    if e['url'] not in images:
+        images[e['url']] = process_image(slack.image(e['url']))
+    data, ext, flags = images[e['url']]
+    e['resized'] = 'yes' if 'resized' in flags else 'no'
+    e['simplified'] = 'yes' if flags & {'simplified', 'flattened', 'reencoded'} else 'no'
+    if 'flattened' in flags:
+        _add_note(e, 'animation reduced to one frame')
+    if 'reencoded' in flags:
+        _add_note(e, 're-encoded to fit 512 KiB')
+    e['sha256'] = hashlib.sha256(data).hexdigest()
+    have = existing.get(e['mm_name'])
+    if have is not None:
+        stored = hashlib.sha256(chat.emoji_image(have['id'])).hexdigest()
+        if stored == e['sha256']:
+            e['status'] = 'unchanged'
+        else:
+            e['status'] = 'failed'
+            _add_note(e, 'name already used by a different image')
+        return
+    if dry_run:
+        e['status'] = 'would import'
+        return
+    chat.create_emoji(e['mm_name'], creator, data, ext)
+    e['status'] = 'imported'
+
+
 def run(slack, chat, system, dry_run=False):
+    """One emoji's failure (network, bad image, 429/5xx) becomes a `failed`
+    row; it never stops the others."""
     entries = assign_names(resolve(slack.emoji_list(), system), system)
     existing = chat.all_emoji() if chat else {}
     creator = chat.me()['id'] if chat and not dry_run else ''
     images = {}
+    errors = _entry_errors()
     for e in entries:
         e.update(status='', resized='no', simplified='no', sha256='')
         if e['kind'] == 'failed':
@@ -257,34 +326,10 @@ def run(slack, chat, system, dry_run=False):
             e['status'] = 'built-in'
             continue
         try:
-            if e['url'] not in images:
-                images[e['url']] = process_image(slack.image(e['url']))
-            data, ext, flags = images[e['url']]
-        except (MigrationError, ValueError, OSError) as err:
-            e['status'], e['note'] = 'failed', f'image: {err}'
-            continue
-        e['resized'] = 'yes' if 'resized' in flags else 'no'
-        e['simplified'] = 'yes' if flags & {'simplified', 'flattened'} else 'no'
-        if 'flattened' in flags:
-            e['note'] = (e['note'] + '; ' if e['note'] else '') + 'animation reduced to one frame'
-        e['sha256'] = hashlib.sha256(data).hexdigest()
-        have = existing.get(e['mm_name'])
-        if have is not None:
-            stored = hashlib.sha256(chat.emoji_image(have['id'])).hexdigest()
-            if stored == e['sha256']:
-                e['status'] = 'unchanged'
-            else:
-                e['status'] = 'failed'
-                e['note'] = (e['note'] + '; ' if e['note'] else '') + 'name already used by a different image'
-            continue
-        if dry_run:
-            e['status'] = 'would import'
-            continue
-        try:
-            chat.create_emoji(e['mm_name'], creator, data, ext)
-            e['status'] = 'imported'
-        except MigrationError as err:
-            e['status'], e['note'] = 'failed', str(err)
+            _import_one(e, slack, chat, existing, creator, dry_run, images)
+        except errors as err:
+            e['status'] = 'failed'
+            _add_note(e, _reason(err))
     return entries
 
 
@@ -299,7 +344,8 @@ def report(entries):
              f'- aliases of built-in emoji (not uploaded): {count(status="built-in")}',
              f'- renamed: {count(renamed="yes")}',
              f'- resized: {count(resized="yes")}',
-             f'- animation simplified: {count(simplified="yes")}',
+             f'- animation simplified or re-encoded: {count(simplified="yes")}',
+             f'- animation flattened to one frame: {sum(1 for e in entries if "one frame" in e["note"])}',
              f'- failed: {count(status="failed")}', '', '## Failed and simplified', '']
     for e in entries:
         if e['status'] == 'failed' or e['simplified'] == 'yes':
@@ -328,11 +374,15 @@ def main(argv=None):
     except MigrationError as e:
         print(f'error: {e}', file=sys.stderr)
         return 2
+    except _entry_errors()[-1] as e:   # requests.RequestException: no message, it could echo a URL
+        print(f'error: {type(e).__name__} talking to Slack or chat', file=sys.stderr)
+        return 2
+    os.makedirs(a.out_dir, exist_ok=True)
     write_csv(os.path.join(a.out_dir, 'emoji_map.csv'), entries, MAP_FIELDS)
     lines = report(entries)
     with open(os.path.join(a.out_dir, 'emoji_report.md'), 'w', encoding='utf-8') as f:
         f.write('\n'.join(lines) + '\n')
-    print('\n'.join(lines[:11]))
+    print('\n'.join(lines[:12]))
     return 1 if any(e['status'] == 'failed' for e in entries) else 0
 
 
