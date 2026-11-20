@@ -12,6 +12,7 @@ import * as WebSocketActions from 'actions/websocket_actions';
 import BrowserStore from 'stores/browser_store';
 
 import LoadingScreen from 'components/loading_screen';
+import {clearSignedOut as clearIflSignedOut} from 'components/login/ifl_signin'; // IFL: iflgm.com sign-in
 
 import WebSocketClient from 'client/web_websocket_client';
 import Constants from 'utils/constants';
@@ -67,6 +68,10 @@ export default class LoggedIn extends React.PureComponent<Props> {
     public componentDidMount(): void {
         // Initialize websocket
         WebSocketActions.initialize();
+
+        if (this.isValidState()) { // IFL: signed in again, so the login page may go straight to iflgm.com next time
+            clearIflSignedOut();
+        }
 
         this.updateTimeZone();
 

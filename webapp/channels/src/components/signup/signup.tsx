@@ -36,11 +36,11 @@ import AlternateLinkLayout from 'components/header_footer_route/content_layouts/
 import ColumnLayout from 'components/header_footer_route/content_layouts/column';
 import type {CustomizeHeaderType} from 'components/header_footer_route/header_footer_route';
 import LoadingScreen from 'components/loading_screen';
+import {IFL_SIGNIN_LABEL} from 'components/login/ifl_signin'; // IFL: iflgm.com sign-in (the GitLab icon import is removed)
 import Markdown from 'components/markdown';
 import SaveButton from 'components/save_button';
 import EntraIdIcon from 'components/widgets/icons/entra_id_icon';
 import LockIcon from 'components/widgets/icons/lock_icon';
-import LoginGitlabIcon from 'components/widgets/icons/login_gitlab_icon';
 import LoginGoogleIcon from 'components/widgets/icons/login_google_icon';
 import LoginOpenIDIcon from 'components/widgets/icons/login_openid_icon';
 import CheckInput from 'components/widgets/inputs/check';
@@ -161,8 +161,8 @@ const Signup = ({onCustomizeHeader}: SignupProps) => {
             externalLoginOptions.push({
                 id: 'gitlab',
                 url,
-                icon: <LoginGitlabIcon/>,
-                label: GitLabButtonText || formatMessage({id: 'login.gitlab', defaultMessage: 'GitLab'}),
+                icon: null, // IFL: no GitLab icon
+                label: GitLabButtonText || IFL_SIGNIN_LABEL, // IFL: iflgm.com label
                 style: {color: GitLabButtonColor, borderColor: GitLabButtonColor},
                 onClick: desktopExternalAuth(url),
             });
