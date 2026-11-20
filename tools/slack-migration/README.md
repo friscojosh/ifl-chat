@@ -43,7 +43,14 @@ make no network requests.
 6. `mmetl transform slack --team ifl --bot-owner josh_0`.
 7. `rewrite_import.py`: SSO links, active state, display names, checks,
    and the import zip.
-8. `mmctl import validate`, then `mmctl --local import process --bypass-upload`.
+8. Before the import, snapshot existing accounts and memberships
+   (`mmctl --local user list --all --json`, and the members CSV the plan's
+   runbook names). Then `mmctl import validate` and
+   `mmctl --local import process --bypass-upload`. After it, run
+   `restore-scheme-roles.sh`, take the same two snapshots again and compare
+   them with `inventory.py accounts BEFORE AFTER` and
+   `inventory.py members BEFORE AFTER`. The import resets an existing
+   account's locale to the default; `accounts` reports that, restore it by hand.
 9. `inventory.py reconcile`: per-channel counts against Slack.
 
 Originals are never modified; every step writes a new file.

@@ -187,6 +187,18 @@ def resolve_identities(rows, chat_users):
             }
         ident['slack_id'] = sid
         name = ident['username']
+        if ident['existing']:
+            # The import re-links an account whose auth data differs, and
+            # revokes its sessions, so an existing account must already be
+            # this site user's gitlab account.
+            acct = chat_by_name.get(name)
+            if acct is None:
+                errors.append(f'{sid}: chat account {name!r} is not in the chat snapshot')
+            elif (acct.get('auth_service') != 'gitlab'
+                  or str(acct.get('auth_data') or '') != ident['auth_data']):
+                errors.append(
+                    f'{sid}: chat account {name!r} is not the gitlab account for site user '
+                    f'{ident["auth_data"]} (auth_service/auth_data differ); fix the identity row')
         if not valid_username(name):
             errors.append(f'{sid}: username {name!r} is not a valid chat username; set mm_username_override')
         if name in seen:

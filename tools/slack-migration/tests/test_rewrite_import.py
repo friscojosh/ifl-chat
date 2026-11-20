@@ -147,3 +147,162 @@ def test_reaction_not_before_its_post(setup):
     assert [r['create_at'] for r in post['reactions']] == [10, 10, 10]
     assert post['replies'][0]['reactions'][0]['create_at'] == 5
     assert '- reactions moved to their post time: 4' in (tmp / 'report.md').read_text()
+
+
+def put(tmp, data):
+    (tmp / 'data.jsonl').write_text('\n'.join(json.dumps(x) for x in data) + '\n')
+
+
+def report_of(tmp):
+    return (tmp / 'report.md').read_text()
+
+
+def test_bot_colliding_with_existing_chat_account_stops(setup):
+    tmp, args = setup
+    users = json.loads((tmp / 'chat_users.json').read_text())
+    users.append({'username': 'ifl-bot', 'email': 'ifl-bot@example.test'})
+    (tmp / 'chat_users.json').write_text(json.dumps(users))
+    data = lines()
+    data[6]['bot']['username'] = 'ifl-bot'
+    data[-2]['post']['replies'][0]['user'] = 'ifl-bot'
+    put(tmp, data)
+    assert ri.main(args) == 1
+    assert 'bot ifl-bot already exists in chat' in report_of(tmp)
+    assert not (tmp / 'import.zip').exists()
+
+
+def test_linked_non_member_is_deactivated_but_keeps_link(setup):
+    tmp, args = setup
+    import csv
+    rows = list(csv.DictReader(open(tmp / 'identity_map.csv', newline='')))
+    for r in rows:
+        if r['slack_id'] == 'U2GM':
+            r['site_member'] = 'no'
+    with open(tmp / 'identity_map.csv', 'w', newline='') as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0]))
+        w.writeheader()
+        w.writerows(rows)
+    assert ri.main(args) == 0
+    out, _ = read_import(tmp / 'import.zip')
+    brad = {x['user']['username']: x['user'] for x in out if x['type'] == 'user'}['miami.brad']
+    assert brad['delete_at'] == NOW
+    assert brad['auth_service'] == 'gitlab' and brad['auth_data'] == '7'
+
+
+def test_town_square_is_forced_open_and_undeleted(setup):
+    tmp, args = setup
+    data = lines()
+    data[1]['channel'].update(type='P', deleted_at=1500000100000)
+    put(tmp, data)
+    assert ri.main(args) == 0
+    out, _ = read_import(tmp / 'import.zip')
+    ts = [x['channel'] for x in out if x['type'] == 'channel' and x['channel']['name'] == 'town-square'][0]
+    assert ts['type'] == 'O' and 'deleted_at' not in ts
+
+
+def test_channel_missing_from_channel_map_stops(setup):
+    tmp, args = setup
+    data = lines()
+    data.insert(3, {'type': 'channel', 'channel': {'team': 'ifl', 'name': 'mystery', 'type': 'O'}})
+    put(tmp, data)
+    assert ri.main(args) == 1
+    assert 'channel mystery is not in channel_map.csv' in report_of(tmp)
+
+
+def test_channel_on_wrong_team_stops(setup):
+    tmp, args = setup
+    data = lines()
+    data[1]['channel']['team'] = 'other'
+    put(tmp, data)
+    assert ri.main(args) == 1
+    assert 'channel town-square is for team other' in report_of(tmp)
+
+
+def test_reaction_by_unknown_user_stops(setup):
+    tmp, args = setup
+    data = lines()
+    data[-2]['post']['reactions'][0]['user'] = 'ghost'
+    put(tmp, data)
+    assert ri.main(args) == 1
+    assert 'reaction by unknown user ghost' in report_of(tmp)
+
+
+@pytest.mark.parametrize('kind', ['direct_channel', 'direct_post'])
+def test_direct_lines_stop(setup, kind):
+    tmp, args = setup
+    data = lines()
+    data.append({'type': kind, kind: {}})
+    put(tmp, data)
+    assert ri.main(args) == 1
+    assert f'{kind} lines are out of scope' in report_of(tmp)
+
+
+def test_message_text_passes_through_byte_identical(setup):
+    tmp, args = setup
+    odd = 'a  b\r\n\t`code` <@U2GM> é‮ \U0001f600 \\n  trailing  '
+    data = lines()
+    data[-2]['post']['message'] = odd
+    data[-2]['post']['replies'][0]['message'] = odd[::-1]
+    put(tmp, data)
+    assert ri.main(args) == 0
+    out, _ = read_import(tmp / 'import.zip')
+    post = [x['post'] for x in out if x['type'] == 'post' and x['post']['channel'] == 'town-square'][0]
+    assert post['message'] == odd and post['replies'][0]['message'] == odd[::-1]
+
+
+def test_every_referenced_attachment_is_packaged_and_only_those(setup):
+    tmp, args = setup
+    att = tmp / 'data' / 'bulk-export-attachments'
+    for name in ('FA_one.png', 'FB_two.png', 'FC_unused.png'):
+        (att / name).write_bytes(b'x' + name.encode())
+    data = lines()
+    data[-2]['post']['attachments'] += [{'path': 'bulk-export-attachments/FA_one.png'}]
+    data[-2]['post']['replies'][0]['attachments'] = [{'path': 'bulk-export-attachments/FB_two.png'}]
+    put(tmp, data)
+    assert ri.main(args) == 0
+    _, names = read_import(tmp / 'import.zip')
+    assert sorted(names) == ['data/bulk-export-attachments/FA_one.png',
+                             'data/bulk-export-attachments/FB_two.png',
+                             'data/bulk-export-attachments/FOK_shot.png', 'import.jsonl']
+    with zipfile.ZipFile(tmp / 'import.zip') as z:
+        assert z.read('data/bulk-export-attachments/FB_two.png') == b'xFB_two.png'
+
+
+@pytest.mark.parametrize('bad', ['/etc/passwd', '../outside.png', 'bulk-export-attachments/../../outside.png'])
+def test_attachment_path_must_stay_inside_attachments_dir(setup, bad):
+    tmp, args = setup
+    (tmp / 'outside.png').write_bytes(b'secret')
+    data = lines()
+    data[-2]['post']['attachments'] = [{'path': bad}]
+    put(tmp, data)
+    assert ri.main(args) == 1
+    assert 'escapes the attachments directory' in report_of(tmp)
+    assert not (tmp / 'import.zip').exists()
+
+
+def test_reaction_with_null_create_at_is_a_problem_not_a_crash(setup):
+    tmp, args = setup
+    data = lines()
+    data[-2]['post']['reactions'][0]['create_at'] = None
+    put(tmp, data)
+    assert ri.main(args) == 1
+    assert 'reaction has no create_at' in report_of(tmp)
+
+
+def test_output_zip_is_private(setup):
+    import stat
+    tmp, args = setup
+    assert ri.main(args) == 0
+    assert stat.S_IMODE((tmp / 'import.zip').stat().st_mode) == 0o600
+
+
+def test_custom_emoji_names_only_counts_usable_statuses(tmp_path):
+    p = tmp_path / 'e.csv'
+    p.write_text('slack_name,kind,target,mm_name,status,renamed,resized,simplified,sha256,note\n'
+                 'a,custom,,a_ifl,imported,,,,,\n'
+                 'b,custom,,b_ifl,unchanged,,,,,\n'
+                 'c,alias,,c_ifl,built-in,,,,,\n'
+                 'd,custom,,d_ifl,failed,,,,,\n'
+                 'e,custom,,e_ifl,pending,,,,,\n'
+                 'f,custom,,f_ifl,,,,,,\n')
+    assert ri.custom_emoji_names(str(p)) == {'a_ifl', 'b_ifl', 'c_ifl'}

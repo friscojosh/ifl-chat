@@ -180,3 +180,23 @@ def test_accounts_and_members(tmp_path):
     restore = inventory.members(tmp_path / 'mb.csv', tmp_path / 'ma.csv')
     assert [(r['kind'], r['target_id'], r['scheme_admin'], r['explicit_roles']) for r in restore] == [
         ('channel', 'c1', 'false', 'custom_role'), ('team', 't1', 'true', '')]
+
+
+@pytest.mark.parametrize('snapshot_user', [
+    {'username': 'josh_0', 'email': 'josh@example.test', 'auth_service': 'gitlab', 'auth_data': '9'},
+    {'username': 'josh_0', 'email': 'josh@example.test', 'auth_service': '', 'auth_data': ''},
+    {'username': 'josh_0', 'email': 'josh@example.test'},
+])
+def test_resolve_refuses_existing_account_not_linked_to_that_site_id(identity_csv, snapshot_user):
+    """Importing auth_data 2 onto josh_0 would re-link the commissioner and revoke his sessions."""
+    rows = read_csv(identity_csv)
+    rows[0]['site_id'] = '2'
+    chat = [snapshot_user]
+    with pytest.raises(MigrationError, match=r"josh_0.*(auth_data|gitlab)"):
+        resolve_identities(rows, chat)
+
+
+def test_resolve_refuses_existing_account_missing_from_snapshot(identity_csv):
+    rows = read_csv(identity_csv)
+    with pytest.raises(MigrationError, match='josh_0.*not in the chat snapshot'):
+        resolve_identities(rows, [])

@@ -16,7 +16,10 @@ layout Mattermost's import job reads (model.ExportDataDir = "data").
   * People who are not linked, and linked people who are not current league
     members, are imported deactivated.
   * Channel display names come from channel_map.csv; town-square stays open.
-  * Every reference is checked: users, channels, attachments. Unknown
+  * An identity row that names an existing chat account is refused unless the
+    snapshot shows that account linked (gitlab) to the same site id.
+  * Every reference is checked: users, channels, attachments (confined to the
+    attachments directory; only referenced files are packaged). Unknown
     emoji names are reported, not changed.
 Writes per-channel post and reply counts for the acceptance checks.
 """
@@ -32,6 +35,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # run with pytho
 from common import (TEAM, TOWN_SQUARE, MigrationError, load_chat_users,  # noqa: E402
                     read_csv, resolve_identities, write_csv)
 
+USABLE_EMOJI_STATUS = ('imported', 'unchanged', 'built-in')
 COUNT_FIELDS = ['mm_name', 'posts', 'replies', 'reactions', 'attachments']
 
 
@@ -45,7 +49,7 @@ def custom_emoji_names(emoji_map_path):
     if not emoji_map_path:
         return set()
     return {r['mm_name'] for r in read_csv(emoji_map_path)
-            if r['mm_name'] and r['status'] != 'failed' and r['kind'] != 'standard'}
+            if r['mm_name'] and r['status'] in USABLE_EMOJI_STATUS}
 
 
 def rewrite_user(u, ident, now_ms):
@@ -72,7 +76,8 @@ def rewrite_user(u, ident, now_ms):
 
 def rewrite(lines, identities, channel_map, chat_usernames, system_emoji, custom_emoji,
             attachments_dir, now_ms, expect_existing=()):
-    """Return (rewritten lines, per-channel counts, problems, unknown emoji, reactions moved)."""
+    """Return (rewritten lines, per-channel counts, problems, unknown emoji, reactions moved,
+    attachment paths to package, normalised and relative to attachments_dir)."""
     by_username = {i['username']: i for i in identities.values()}
     display = {r['mm_name']: r['mm_display_name'] for r in channel_map}
     known_users = set(chat_usernames)
@@ -80,6 +85,8 @@ def rewrite(lines, identities, channel_map, chat_usernames, system_emoji, custom
     counts = collections.defaultdict(collections.Counter)
     unknown_emoji = collections.Counter()
     moved = [0]
+    packaged = set()
+    root = os.path.realpath(attachments_dir)
     users_seen = set()
     existing_seen = set()
     for n, raw in enumerate(lines, 1):
@@ -127,11 +134,22 @@ def rewrite(lines, identities, channel_map, chat_usernames, system_emoji, custom
                     problems.append(f'line {n}: author {it.get("user")} has no user line')
                 for a in it.get('attachments') or []:
                     c['attachments'] += 1
-                    if not os.path.isfile(os.path.join(attachments_dir, a['path'])):
+                    rel = os.path.normpath(a['path'])
+                    full = os.path.realpath(os.path.join(root, rel))
+                    if (os.path.isabs(a['path']) or rel == '..' or rel.startswith('..' + os.sep)
+                            or os.path.commonpath([root, full]) != root):
+                        problems.append(f'line {n}: attachment {a["path"]} escapes the '
+                                        'attachments directory')
+                    elif not os.path.isfile(full):
                         problems.append(f'line {n}: attachment {a["path"]} is missing')
+                    else:
+                        a['path'] = rel.replace(os.sep, '/')
+                        packaged.add(rel)
                 for r in it.get('reactions') or []:
                     c['reactions'] += 1
-                    if r.get('create_at', 0) < it.get('create_at', 0):
+                    if not isinstance(r.get('create_at'), int):
+                        problems.append(f'line {n}: reaction has no create_at')
+                    elif r['create_at'] < it.get('create_at', 0):
                         # mmetl can stamp a reaction 1 ms before its post; the
                         # import validator rejects that.
                         r['create_at'] = it['create_at']
@@ -148,18 +166,18 @@ def rewrite(lines, identities, channel_map, chat_usernames, system_emoji, custom
         if name not in existing_seen:
             problems.append(f'{name}: no Slack history is linked to this existing chat account '
                             '(check its identity_map.csv row is confirmed)')
-    return out, counts, problems, unknown_emoji, moved[0]
+    return out, counts, problems, unknown_emoji, moved[0], sorted(packaged)
 
 
-def package(jsonl_lines, attachments_dir, out_zip):
+def package(jsonl_lines, attachments_dir, attachment_paths, out_zip):
+    """Write the import zip: import.jsonl plus only the referenced attachments."""
     tmp = out_zip + '.partial'
+    os.close(os.open(tmp, os.O_WRONLY | os.O_CREAT, 0o600))
     with zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED, allowZip64=True) as z:
         z.writestr('import.jsonl', '\n'.join(jsonl_lines) + '\n')
-        for root, _dirs, files in os.walk(attachments_dir):
-            for fn in sorted(files):
-                full = os.path.join(root, fn)
-                rel = os.path.relpath(full, attachments_dir)
-                z.write(full, 'data/' + rel.replace(os.sep, '/'))
+        for rel in attachment_paths:
+            z.write(os.path.join(attachments_dir, rel), 'data/' + rel.replace(os.sep, '/'))
+    os.chmod(tmp, 0o600)
     os.replace(tmp, out_zip)
 
 
@@ -186,7 +204,7 @@ def main(argv=None):
         identities = resolve_identities(read_csv(a.identity), chat_users)
         with open(a.input, encoding='utf-8') as f:
             lines = [ln for ln in f if ln.strip()]
-        out, counts, problems, unknown, moved = rewrite(
+        out, counts, problems, unknown, moved, attachment_paths = rewrite(
             lines, identities, read_csv(a.channel_map),
             {u['username'].lower() for u in chat_users}, load_system_emoji(a.system_emoji),
             custom_emoji_names(a.emoji_map), a.attachments_dir, now_ms, a.expect_existing)
@@ -214,7 +232,7 @@ def main(argv=None):
     if problems:
         print(f'error: {len(problems)} problems; see {a.report}', file=sys.stderr)
         return 1
-    package(out, a.attachments_dir, a.output_zip)
+    package(out, a.attachments_dir, attachment_paths, a.output_zip)
     print(f'wrote {a.output_zip}')
     return 0
 
