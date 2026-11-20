@@ -25,9 +25,9 @@ from common import (MigrationError, load_env_file, member_name,  # noqa: E402
                     read_csv, slack_file_url, valid_username, write_csv)
 
 COUNT_FIELDS = ['folder', 'slack_id', 'slack_name', 'archived', 'in_channels_json',
-                'messages', 'replies', 'mmetl_drops', 'first', 'last', 'files_hidden',
+                'messages', 'replies', 'mmetl_drops', 'mmetl_extra', 'first', 'last', 'files_hidden',
                 'files_with_url', 'files_tombstone', 'files_other']
-RECONCILE_FIELDS = ['mm_name', 'slack_messages', 'mmetl_drops', 'expected', 'import_file',
+RECONCILE_FIELDS = ['mm_name', 'slack_messages', 'mmetl_drops', 'mmetl_extra', 'expected', 'import_file',
                     'database', 'import_diff', 'database_diff']
 # Messages mmetl v0.6.0 does not import (services/slack/intermediate.go:994,
 # :1141), counted on the *prepared* export.
@@ -42,6 +42,25 @@ def mmetl_drops(m):
     if m.get('subtype') in MMETL_DROPPED_SUBTYPES:
         return True
     return not m.get('user')
+
+
+# mmetl v0.6.0 keeps POST_MAX_ATTACHMENTS files on a post or reply and puts the
+# rest in extra empty replies of up to that many each
+# (services/intermediate/export.go createRepliesForAttachments).
+MMETL_POST_MAX_ATTACHMENTS = 5
+
+
+def mmetl_attachment_replies(m, uploads):
+    """Extra replies mmetl adds for a message's files beyond the per-post
+    limit. Counts only files mmetl attaches: 'file' if present, else 'files',
+    named (access granted) and in __uploads (transform runs without
+    --allow-download)."""
+    if mmetl_drops(m):
+        return 0
+    files = [m['file']] if m.get('file') else (m.get('files') or [])
+    n = sum(1 for f in files if f.get('name') and f.get('id') in uploads)
+    over = n - MMETL_POST_MAX_ATTACHMENTS
+    return -(-over // MMETL_POST_MAX_ATTACHMENTS) if over > 0 else 0
 USER_FIELDS = ['slack_id', 'slack_username', 'slack_real_name', 'slack_email',
                'slack_deleted', 'is_bot', 'bot_id']
 
@@ -101,7 +120,7 @@ def scan(zf):
         row = per.setdefault(folder, {
             'folder': folder, 'slack_id': c['id'] if c else '',
             'slack_name': c['name'] if c else '', 'archived': str(bool(c and c.get('is_archived'))).lower(),
-            'in_channels_json': 'yes' if c else 'no', 'messages': 0, 'replies': 0, 'mmetl_drops': 0,
+            'in_channels_json': 'yes' if c else 'no', 'messages': 0, 'replies': 0, 'mmetl_drops': 0, 'mmetl_extra': 0,
             'first': '', 'last': '', 'files_hidden': 0, 'files_with_url': 0,
             'files_tombstone': 0, 'files_other': 0})
         for m in json.loads(zf.read(info)):
@@ -109,6 +128,7 @@ def scan(zf):
             totals['messages'] += 1
             if mmetl_drops(m):
                 row['mmetl_drops'] += 1
+            row['mmetl_extra'] += mmetl_attachment_replies(m, uploads)
             subtypes[m.get('subtype') or 'message'] += 1
             ts = m.get('ts')
             if ts:
@@ -301,18 +321,21 @@ def compare(old_path, new_path):
 
 def reconcile(slack_path, import_path, db_path=None):
     """Per-channel acceptance counts: Slack messages minus the ones mmetl is
-    known to drop, against the import file and (after import) the database."""
+    known to drop, plus the replies it adds for files over the per-post limit
+    (mmetl_extra; 0 when the counts file predates that column), against the import file and (after import) the database."""
     slack = {r['folder']: r for r in read_csv(slack_path)}
     imp = {r['mm_name']: r for r in read_csv(import_path)}
     db = {r['mm_name']: r for r in read_csv(db_path)} if db_path else {}
     rows = []
     for name in sorted(set(slack) | set(imp)):
         s = slack.get(name, {})
-        expected = int(s.get('messages') or 0) - int(s.get('mmetl_drops') or 0)
+        expected = (int(s.get('messages') or 0) - int(s.get('mmetl_drops') or 0)
+                    + int(s.get('mmetl_extra') or 0))
         i = imp.get(name, {})
         in_file = int(i.get('posts') or 0) + int(i.get('replies') or 0)
         row = {'mm_name': name, 'slack_messages': s.get('messages', '0'),
-               'mmetl_drops': s.get('mmetl_drops', '0'), 'expected': expected,
+               'mmetl_drops': s.get('mmetl_drops', '0'),
+               'mmetl_extra': s.get('mmetl_extra') or '0', 'expected': expected,
                'import_file': in_file, 'import_diff': in_file - expected,
                'database': '', 'database_diff': ''}
         if db_path:
