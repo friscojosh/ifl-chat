@@ -14453,12 +14453,12 @@
   },
   {
     "id": "ifl.suspension.not_eligible",
-    "translation": "iflgm.com will not restore this member because they are not eligible.",
+    "translation": "iflgm.com will not restore this member: {{.Reason}}",
     "description": "Error returned when an admin reactivates a site-linked member whom iflgm.com reports as ineligible."
   },
   {
     "id": "ifl.suspension.site_refused",
-    "translation": "iflgm.com did not confirm the change, so the account was not changed.",
+    "translation": "The account was not changed because iflgm.com did not confirm it: {{.Reason}}",
     "description": "Error returned when the iflgm.com suspension callback fails, refuses, or is not configured."
   },
   {

@@ -848,12 +848,6 @@ func (a *App) LoginByOAuth(rctx request.CTX, service string, userData io.Reader,
 			return nil, model.NewAppError("loginByOAuth", "api.user.login_by_oauth.bot_login_forbidden.app_error", nil, "", http.StatusForbidden)
 		}
 
-		// IFL: plan 4 — a returning member signs in through iflgm.com, which has
-		// just confirmed their eligibility: reactivate and provision.
-		if user, appErr = a.IFLReactivateIfNeeded(rctx, user); appErr != nil {
-			return nil, appErr
-		}
-
 		if appErr = a.UpdateOAuthUserAttrs(rctx, bytes.NewReader(buf.Bytes()), user, provider, service, tokenUser); appErr != nil {
 			return nil, appErr
 		}
@@ -867,7 +861,11 @@ func (a *App) LoginByOAuth(rctx request.CTX, service string, userData io.Reader,
 		return nil, appErr
 	}
 
-	// IFL: plan 4 — every iflgm.com sign-in lands in the IFL team.
+	// IFL: plan 4 — iflgm.com has just confirmed this member's eligibility:
+	// reactivate a deactivated account (new or returning) and provision it.
+	if user, appErr = a.IFLReactivateIfNeeded(rctx, user); appErr != nil {
+		return nil, appErr
+	}
 	a.IFLProvision(rctx, user)
 
 	return user, nil

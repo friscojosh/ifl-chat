@@ -95,6 +95,7 @@ func (a *App) IFLPanelSession(rctx request.CTX, token string) (*model.Session, *
 		ExpiresAt: model.GetMillis() + int64((24*time.Hour)/time.Millisecond),
 		Props:     model.StringMap{"ifl_panel": "true", model.SessionPropPlatform: "iflgm.com panel"},
 	}
+	session.GenerateCSRF() // as every upstream login does; guards cookie use of this session
 	return a.CreateSession(rctx, session)
 }
 
@@ -123,14 +124,14 @@ func (a *App) IFLMirrorActiveChange(rctx request.CTX, target *model.User, active
 	}
 	res, err := ifl.NewSiteClient(cfg).Suspension(rctx.Context(), *target.AuthData, action, actorUsername)
 	if err != nil {
-		return model.NewAppError("IFLMirrorActiveChange", "ifl.suspension.site_refused", nil, err.Error(), http.StatusConflict)
+		return model.NewAppError("IFLMirrorActiveChange", "ifl.suspension.site_refused", map[string]any{"Reason": err.Error()}, "", http.StatusConflict)
 	}
 	if active && !res.Eligible {
 		reason := "not eligible"
 		if res.Reason != nil {
 			reason = *res.Reason
 		}
-		return model.NewAppError("IFLMirrorActiveChange", "ifl.suspension.not_eligible", nil, "iflgm.com says this member is "+reason, http.StatusConflict)
+		return model.NewAppError("IFLMirrorActiveChange", "ifl.suspension.not_eligible", map[string]any{"Reason": reason}, "", http.StatusConflict)
 	}
 	return nil
 }
