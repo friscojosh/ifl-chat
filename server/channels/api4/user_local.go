@@ -334,6 +334,11 @@ func localDeleteUser(c *Context, w http.ResponseWriter, r *http.Request) {
 	auditRec.AddEventPriorState(user)
 	auditRec.AddEventObjectType("user")
 
+	// IFL: plan 4 — a ban in chat is a ban on iflgm.com (spec §3).
+	if !iflMirrorFromAPI(c, user, false, c.Params.Permanent) {
+		return
+	}
+
 	if c.Params.Permanent {
 		err = c.App.PermanentDeleteUser(c.AppContext, user)
 	} else {

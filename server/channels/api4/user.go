@@ -1701,6 +1701,11 @@ func deleteUser(c *Context, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// IFL: plan 4 — a ban in chat is a ban on iflgm.com (spec §3).
+	if (!permanent || *c.App.Config().ServiceSettings.EnableAPIUserDeletion) && !iflMirrorFromAPI(c, user, false, permanent) {
+		return
+	}
+
 	if permanent {
 		if *c.App.Config().ServiceSettings.EnableAPIUserDeletion {
 			err = c.App.PermanentDeleteUser(c.AppContext, user)
@@ -1833,6 +1838,11 @@ func updateUserActive(c *Context, w http.ResponseWriter, r *http.Request) {
 
 	if user.AuthService == model.UserAuthServiceLdap {
 		c.Err = model.NewAppError("updateUserActive", "api.user.update_active.cannot_modify_status_when_user_is_managed_by_ldap.app_error", nil, "userId="+c.Params.UserId, http.StatusForbidden)
+		return
+	}
+
+	// IFL: plan 4 — a ban in chat is a ban on iflgm.com (spec §3).
+	if !iflMirrorFromAPI(c, user, active, false) {
 		return
 	}
 

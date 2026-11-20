@@ -24,3 +24,25 @@ func TestShouldMirror(t *testing.T) {
 		})
 	}
 }
+
+func TestIsActiveStateChange(t *testing.T) {
+	cases := []struct {
+		name                     string
+		requested, current, perm bool
+		want                     bool
+	}{
+		{"deactivate active member", false, true, false, true},
+		{"reactivate deactivated member", true, false, false, true},
+		{"restore already-active member", true, true, false, false},
+		{"deactivate already-deactivated member", false, false, false, false},
+		{"permanent delete of active member", false, true, true, true},
+		{"permanent delete of deactivated member", false, false, true, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := IsActiveStateChange(c.requested, c.current, c.perm); got != c.want {
+				t.Fatalf("got %v want %v", got, c.want)
+			}
+		})
+	}
+}

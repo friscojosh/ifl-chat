@@ -427,6 +427,7 @@ func Init(srv *app.Server) (*API, error) {
 	api.InitHealthDashboard()
 	api.InitAgents()
 	api.InitProperties()
+	api.InitIFL() // IFL: plan 4
 
 	// If we allow testing then listen for manual testing URL hits
 	if *srv.Config().ServiceSettings.EnableTesting {

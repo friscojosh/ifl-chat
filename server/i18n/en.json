@@ -14432,6 +14432,36 @@
     "description": "Pattern for joining a list into a sentence; {{.OtherItems}} is all items except the last joined by commas, {{.LastItem}} is the final item (e.g. 'a, b and c')."
   },
   {
+    "id": "ifl.panel.bot",
+    "translation": "Bot accounts cannot open an iflgm.com panel session.",
+    "description": "Error returned when an iflgm.com panel token maps to a bot account."
+  },
+  {
+    "id": "ifl.panel.disabled",
+    "translation": "iflgm.com panel sign-in is not configured on this server.",
+    "description": "Error returned when the IFL panel session exchange is used but the shared session secret is not configured."
+  },
+  {
+    "id": "ifl.panel.invalid",
+    "translation": "The iflgm.com panel token is invalid or has expired.",
+    "description": "Error returned when an iflgm.com panel token fails signature, claim or expiry checks."
+  },
+  {
+    "id": "ifl.panel.replayed",
+    "translation": "This iflgm.com panel token has already been used.",
+    "description": "Error returned when an iflgm.com panel token is presented a second time."
+  },
+  {
+    "id": "ifl.suspension.not_eligible",
+    "translation": "iflgm.com will not restore this member because they are not eligible.",
+    "description": "Error returned when an admin reactivates a site-linked member whom iflgm.com reports as ineligible."
+  },
+  {
+    "id": "ifl.suspension.site_refused",
+    "translation": "iflgm.com did not confirm the change, so the account was not changed.",
+    "description": "Error returned when the iflgm.com suspension callback fails, refuses, or is not configured."
+  },
+  {
     "id": "import_process.worker.do_job.file_exists",
     "translation": "Unable to process import: file does not exist.",
     "description": "Error status for a bulk import job when the uploaded import file does not exist; shown in the System Console jobs table and mmctl output."
