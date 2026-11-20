@@ -223,3 +223,47 @@ def test_unverified_email_on_an_existing_chat_account_is_refused(identity_csv, c
     rows[0]['site_member'] = 'no:unverified_email'      # josh_0 already has a chat account
     with pytest.raises(MigrationError, match='U1JOSH.*unverified'):
         resolve_identities(rows, load_chat_users(chat_snapshot[0]))
+
+
+def test_attachment_overflow_replies_rule():
+    """mmetl v0.6.0 keeps 5 files on a post and moves the rest into replies of
+    up to 5 each (services/intermediate/export.go createRepliesForAttachments).
+    Only files it can attach count: named and present in __uploads."""
+    up = {f'F{i}' for i in range(12)}
+
+    def msg(n, **kw):
+        m = {'type': 'message', 'user': 'U1', 'ts': '1.1',
+             'files': [{'id': f'F{i}', 'name': f'{i}.png'} for i in range(n)]}
+        m.update(kw)
+        return m
+    rule = inventory.mmetl_attachment_replies
+    assert [rule(msg(n), up) for n in (0, 5, 6, 9, 10, 11, 12)] == [0, 0, 1, 1, 1, 2, 2]
+    m = msg(7)
+    m['files'][0]['name'] = ''                       # access denied: mmetl skips it
+    m['files'][1]['id'] = 'FMISSING'                 # not downloaded: not attached
+    assert rule(m, up) == 0
+    assert rule(msg(9, file={'id': 'F0', 'name': 'a'}), up) == 0  # 'file' wins over 'files'
+    assert rule(msg(9, subtype='pinned_item'), up) == 0           # dropped message
+
+
+def test_scan_and_reconcile_count_attachment_overflow_replies(tmp_path):
+    import json
+    files = [{'id': f'F{i}', 'name': f'{i}.png', 'mode': 'hosted',
+              'url_private_download': f'https://files.slack.com/x/{i}.png'} for i in range(9)]
+    path = tmp_path / 'e.zip'
+    with zipfile.ZipFile(path, 'w') as z:
+        z.writestr('channels.json', json.dumps([{'id': 'C1', 'name': 'pics', 'members': []}]))
+        z.writestr('users.json', '[]')
+        z.writestr('pics/2020-01-01.json', json.dumps(
+            [{'type': 'message', 'user': 'U1', 'ts': '1.000100', 'files': files}]))
+        for i in range(9):
+            z.writestr(f'__uploads/F{i}/{i}.png', b'x')
+    with zipfile.ZipFile(path) as z:
+        inventory.write_report(inventory.scan(z), str(tmp_path))
+    row = read_csv(tmp_path / 'channel_counts.csv')[0]
+    assert (row['messages'], row['mmetl_drops'], row['mmetl_extra']) == ('1', '0', '1')
+    # mmetl's output: 1 post with 5 files and 1 empty reply with the other 4.
+    (tmp_path / 'i.csv').write_text('mm_name,posts,replies,reactions,attachments\npics,1,1,0,9\n')
+    rows = inventory.reconcile(tmp_path / 'channel_counts.csv', tmp_path / 'i.csv')
+    assert rows[0]['expected'] == 2 and rows[0]['import_diff'] == 0
+    assert rows[0]['mmetl_extra'] == '1'
