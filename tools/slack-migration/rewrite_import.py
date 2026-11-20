@@ -36,7 +36,19 @@ from common import (TEAM, TOWN_SQUARE, MigrationError, load_chat_users,  # noqa:
                     read_csv, resolve_identities, write_csv)
 
 USABLE_EMOJI_STATUS = ('imported', 'unchanged', 'built-in')
-COUNT_FIELDS = ['mm_name', 'posts', 'replies', 'reactions', 'attachments']
+COUNT_FIELDS = ['mm_name', 'posts', 'replies', 'reactions', 'attachments', 'overflow_replies']
+
+
+def count_overflow_replies(items):
+    """Replies mmetl v0.6.0 created for files over the per-post limit
+    (createRepliesForAttachments): no text, only attachments, same author, and
+    created 1 ms after the post or reply that already holds the limit. items is
+    [post, *replies]; the post itself is never an overflow reply."""
+    full = {(it.get('user'), it.get('create_at')) for it in items
+            if len(it.get('attachments') or []) >= 5}
+    return sum(1 for it in items[1:]
+               if not (it.get('message') or '').strip() and it.get('attachments')
+               and (it.get('user'), (it.get('create_at') or 0) - 1) in full)
 
 
 def load_system_emoji(path):
@@ -129,6 +141,7 @@ def rewrite(lines, identities, channel_map, chat_usernames, system_emoji, custom
             c['posts'] += 1
             items = [p] + list(p.get('replies') or [])
             c['replies'] += len(items) - 1
+            c['overflow_replies'] += count_overflow_replies(items)
             for it in items:
                 if it.get('user') not in users_seen and it.get('user') not in known_users:
                     problems.append(f'line {n}: author {it.get("user")} has no user line')

@@ -25,10 +25,11 @@ from common import (MigrationError, load_env_file, member_name,  # noqa: E402
                     read_csv, slack_file_url, valid_username, write_csv)
 
 COUNT_FIELDS = ['folder', 'slack_id', 'slack_name', 'archived', 'in_channels_json',
-                'messages', 'replies', 'mmetl_drops', 'mmetl_extra', 'first', 'last', 'files_hidden',
+                'messages', 'replies', 'mmetl_drops', 'mmetl_extra', 'files_import', 'first', 'last', 'files_hidden',
                 'files_with_url', 'files_tombstone', 'files_other']
 RECONCILE_FIELDS = ['mm_name', 'slack_messages', 'mmetl_drops', 'mmetl_extra', 'expected', 'import_file',
-                    'database', 'import_diff', 'database_diff']
+                    'import_overflow', 'overflow_diff', 'files_expected', 'import_files',
+                    'files_diff', 'database', 'import_diff', 'database_diff']
 # Messages mmetl v0.6.0 does not import (services/slack/intermediate.go:994,
 # :1141), counted on the *prepared* export.
 MMETL_DROPPED_SUBTYPES = {'pinned_item', 'channel_archive', 'channel_unarchive', 'reminder_add'}
@@ -50,17 +51,31 @@ def mmetl_drops(m):
 MMETL_POST_MAX_ATTACHMENTS = 5
 
 
-def mmetl_attachment_replies(m, uploads):
-    """Extra replies mmetl adds for a message's files beyond the per-post
-    limit. Counts only files mmetl attaches: 'file' if present, else 'files',
-    named (access granted) and in __uploads (transform runs without
-    --allow-download)."""
+def importable_files(m, uploads):
+    """Files mmetl will really attach to this message: 'file' if present, else
+    'files'; de-duplicated by id; named (access granted), id in __uploads (the
+    transform runs without --allow-download) and a real downloaded file, not
+    hidden_by_limit, tombstone or external. Empty for a dropped message."""
     if mmetl_drops(m):
-        return 0
+        return []
     files = [m['file']] if m.get('file') else (m.get('files') or [])
-    n = sum(1 for f in files if f.get('name') and f.get('id') in uploads)
-    over = n - MMETL_POST_MAX_ATTACHMENTS
+    seen, out = set(), []
+    for f in files:
+        fid = f.get('id')
+        if (fid and fid not in seen and f.get('name') and fid in uploads
+                and file_kind(f) == 'url'):
+            seen.add(fid)
+            out.append(f)
+    return out
+
+
+def mmetl_attachment_replies(m, uploads):
+    """Extra replies mmetl adds for a message's importable files beyond the
+    per-post limit."""
+    over = len(importable_files(m, uploads)) - MMETL_POST_MAX_ATTACHMENTS
     return -(-over // MMETL_POST_MAX_ATTACHMENTS) if over > 0 else 0
+
+
 USER_FIELDS = ['slack_id', 'slack_username', 'slack_real_name', 'slack_email',
                'slack_deleted', 'is_bot', 'bot_id']
 
@@ -121,6 +136,7 @@ def scan(zf):
             'folder': folder, 'slack_id': c['id'] if c else '',
             'slack_name': c['name'] if c else '', 'archived': str(bool(c and c.get('is_archived'))).lower(),
             'in_channels_json': 'yes' if c else 'no', 'messages': 0, 'replies': 0, 'mmetl_drops': 0, 'mmetl_extra': 0,
+            'files_import': 0,
             'first': '', 'last': '', 'files_hidden': 0, 'files_with_url': 0,
             'files_tombstone': 0, 'files_other': 0})
         for m in json.loads(zf.read(info)):
@@ -129,6 +145,7 @@ def scan(zf):
             if mmetl_drops(m):
                 row['mmetl_drops'] += 1
             row['mmetl_extra'] += mmetl_attachment_replies(m, uploads)
+            row['files_import'] += len(importable_files(m, uploads))
             subtypes[m.get('subtype') or 'message'] += 1
             ts = m.get('ts')
             if ts:
@@ -333,10 +350,26 @@ def reconcile(slack_path, import_path, db_path=None):
                     + int(s.get('mmetl_extra') or 0))
         i = imp.get(name, {})
         in_file = int(i.get('posts') or 0) + int(i.get('replies') or 0)
+        # Cross-check the claimed overflow against the import. Preferred: the
+        # import's own count of overflow replies (empty, attachment-only,
+        # created 1 ms after their parent). Without that column: total
+        # attachments, expected (importable files) against imported.
+        extra = int(s.get('mmetl_extra') or 0)
+        overflow = i.get('overflow_replies')
+        overflow_diff = '' if overflow in (None, '') else int(overflow) - extra
+        fx = s.get('files_import')
+        fi = i.get('attachments')
+        files_diff = '' if fx in (None, '') or fi in (None, '') else int(fi) - int(fx)
+        if extra and overflow_diff == '' and files_diff == '':
+            files_diff = 'unverifiable'       # fail closed: nothing to check the claim against
         row = {'mm_name': name, 'slack_messages': s.get('messages', '0'),
                'mmetl_drops': s.get('mmetl_drops', '0'),
                'mmetl_extra': s.get('mmetl_extra') or '0', 'expected': expected,
                'import_file': in_file, 'import_diff': in_file - expected,
+               'import_overflow': overflow if overflow is not None else '',
+               'overflow_diff': overflow_diff,
+               'files_expected': fx if fx is not None else '',
+               'import_files': fi if fi is not None else '', 'files_diff': files_diff,
                'database': '', 'database_diff': ''}
         if db_path:
             in_db = int((db.get(name) or {}).get('posts') or 0)
@@ -374,9 +407,13 @@ def main(argv=None):
         if a.cmd == 'reconcile':
             rows = reconcile(a.slack, a.imp, a.db)
             write_csv(a.out, rows, RECONCILE_FIELDS)
-            off = [r for r in rows if r['import_diff'] or r['database_diff'] not in ('', 0)]
+            off = [r for r in rows if r['import_diff'] or r['database_diff'] not in ('', 0)
+                   or r['overflow_diff'] not in ('', 0) or r['files_diff'] not in ('', 0)]
             for r in off:
-                print(f'{r["mm_name"]}: expected {r["expected"]}, import file {r["import_file"]}, '
+                print(f'{r["mm_name"]}: expected {r["expected"]} (mmetl_extra {r["mmetl_extra"]}), '
+                      f'import file {r["import_file"]}, '
+                      f'import overflow replies {r["import_overflow"] or "-"} (diff {r["overflow_diff"] or "-"}), '
+                      f'files diff {r["files_diff"] or "-"}, '
                       f'database {r["database"] if r["database"] != "" else "-"}')
             print(f'{len(rows)} channels; {len(off)} differ; details in {a.out}')
             return 1 if off else 0
