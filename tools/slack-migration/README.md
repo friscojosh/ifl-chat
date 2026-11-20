@@ -50,7 +50,7 @@ make no network requests.
    `restore-scheme-roles.sh`, take the same two snapshots again and compare
    them with `inventory.py accounts BEFORE AFTER` and
    `inventory.py members BEFORE AFTER`. The import resets an existing
-   account's locale to the default; `accounts` reports that, restore it by hand.
+   account's locale to the default; neither check compares locale, so reset it by hand.
 9. `inventory.py reconcile`: per-channel counts against Slack.
 
 Originals are never modified; every step writes a new file.
