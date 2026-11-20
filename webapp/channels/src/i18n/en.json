@@ -25771,10 +25771,6 @@
     "defaultMessage": "Unable to load terms of use. If this issue persists, contact your System Administrator.",
     "description": "Error banner shown when the terms-of-service content fails to load during login."
   },
-  "login.gitlab": {
-    "defaultMessage": "GitLab",
-    "description": "Label on the external sign-in button for GitLab SSO on the login page; 'GitLab' is a product name and usually not translated."
-  },
   "login.google": {
     "defaultMessage": "Google",
     "description": "Label on the external sign-in button for Google SSO on the login page; 'Google' is a product name and usually not translated."

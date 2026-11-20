@@ -49,6 +49,8 @@ New, IFL-only code: `server/channels/app/ifl/` (config, panel token, site client
 
 `server/i18n/en.json` carries nine `ifl.*` message strings (`ifl.email.*`, `ifl.panel.*` and `ifl.suspension.*`). It is the one upstream edit with no `// IFL:` marker because JSON has no comments. When merging, keep all `ifl.*` entries; merge conflicts here are usually adjacent-line additions, so keep both sides.
 
+`webapp/channels/src/i18n/en.json` drops `login.gitlab` (the iflgm.com option no longer uses it, and upstream's `i18n-extract:check` fails on unused strings). Keep it out when merging; if an upstream change uses it again, run `npm run i18n-extract` in `webapp/channels`.
+
 Likewise `webapp/channels/src/components/signup/__snapshots__/signup.test.tsx.snap` records the iflgm.com GitLab option (no icon, "Sign in with iflgm.com"); on a conflict, regenerate it with jest `-u` and check that only that changed.
 
 ## Configuration
