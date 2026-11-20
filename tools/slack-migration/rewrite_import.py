@@ -220,6 +220,8 @@ def main(argv=None):
               f'- reactions: {sum(c["reactions"] for c in counts.values())}',
               f'- attachments: {sum(c["attachments"] for c in counts.values())}',
               f'- problems: {len(problems)}',
+              f'- confirmed rows with an unverified site email, imported unmatched: '
+              f'{sum(1 for i in identities.values() if i.get("unverified_email"))}',
               f'- reactions moved to their post time: {moved}',
               f'- reactions whose emoji is neither built in nor imported: '
               f'{sum(unknown.values())} uses of {len(unknown)} names', '',

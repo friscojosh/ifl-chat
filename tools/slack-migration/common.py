@@ -150,7 +150,8 @@ def resolve_identities(rows, chat_users):
     a chat account keeps that account's username and email (the import then
     matches it by auth data and changes nothing about it). Everyone else keeps
     their Slack username unless `mm_username_override` is set; unlinked people
-    get a placeholder email and are imported deactivated.
+    get a placeholder email and are imported deactivated. So does a confirmed
+    row whose site_member is `no:unverified_email` (flagged `unverified_email`).
     """
     chat_by_name = {u['username'].lower(): u for u in chat_users}
     chat_by_email = {(u.get('email') or '').lower(): u for u in chat_users if u.get('email')}
@@ -160,6 +161,20 @@ def resolve_identities(rows, chat_users):
             continue
         sid = row['slack_id']
         linked = row['confirmed'].strip().lower() == 'yes' and row['site_id'].strip() != ''
+        # slack-match writes `no:unverified_email` when the site email is not
+        # verified. Linking would give that unverified address to a chat
+        # account (and sign-in by site id), so such a row imports unmatched,
+        # deactivated, under the placeholder email; link-slack-user links it
+        # once the member verifies. An existing chat account cannot be
+        # unlinked by the import, so that case stops here instead.
+        unverified = linked and row['site_member'].strip() == 'no:unverified_email'
+        if unverified and row['chat_username']:
+            errors.append(f'{sid}: site user {row["site_id"].strip()} has an unverified email but '
+                          f'already has chat account {row["chat_username"]!r}; resolve it by hand '
+                          'before the import')
+            continue
+        if unverified:
+            linked = False
         override = row['mm_username_override'].strip().lower()
         if linked and row['chat_username']:
             ident = {
@@ -186,6 +201,8 @@ def resolve_identities(rows, chat_users):
                 'existing': False,
             }
         ident['slack_id'] = sid
+        if unverified:
+            ident['unverified_email'] = True
         name = ident['username']
         if ident['existing']:
             # The import re-links an account whose auth data differs, and
