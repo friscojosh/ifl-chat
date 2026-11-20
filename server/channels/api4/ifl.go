@@ -51,7 +51,7 @@ func iflMirrorFromAPI(c *Context, target *model.User, active, permanentDelete bo
 			actor = actingUser.Username
 		}
 	}
-	if appErr := c.App.IFLMirrorActiveChange(c.AppContext, target, active, actor); appErr != nil {
+	if appErr := c.App.IFLMirrorActiveChange(c.AppContext, target, active, permanentDelete, actor); appErr != nil {
 		c.Err = appErr
 		return false
 	}

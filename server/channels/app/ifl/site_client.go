@@ -13,7 +13,8 @@ import (
 )
 
 // ErrNoSiteAccount means iflgm.com answered that it has no account with this
-// id (its own JSON "User not found", not a bare 404 from a misrouted proxy).
+// id: a 404 carrying the site's code "no_site_account" (a bare 404 from a
+// misrouted proxy, or any other body, stays a refusal).
 var ErrNoSiteAccount = errors.New("iflgm.com has no account with this id")
 
 type SuspensionResult struct {
@@ -67,9 +68,10 @@ func (s *SiteClient) Suspension(ctx context.Context, siteID string, action, acto
 	if resp.StatusCode != http.StatusOK {
 		var e struct {
 			Error string `json:"error"`
+			Code  string `json:"code"`
 		}
 		_ = json.Unmarshal(raw, &e)
-		if resp.StatusCode == http.StatusNotFound && e.Error == "User not found" {
+		if resp.StatusCode == http.StatusNotFound && e.Code == "no_site_account" {
 			return nil, ErrNoSiteAccount
 		}
 		if e.Error == "" {

@@ -162,7 +162,7 @@ func TestSuspensionRejectsUnknownAction(t *testing.T) {
 func TestSuspensionNoSiteAccount(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"error":"User not found"}`))
+		w.Write([]byte(`{"error":"User not found","code":"no_site_account"}`))
 	}))
 	defer srv.Close()
 	_, err := clientFor(srv.URL).Suspension(context.Background(), "42", "suspend", "comm")
@@ -176,6 +176,18 @@ func TestSuspensionBare404IsRefusal(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(`<html>404 Not Found</html>`))
+	}))
+	defer srv.Close()
+	_, err := clientFor(srv.URL).Suspension(context.Background(), "42", "suspend", "comm")
+	if err == nil || errors.Is(err, ErrNoSiteAccount) {
+		t.Fatalf("err %v", err)
+	}
+}
+
+func TestSuspensionNotFoundTextWithoutCodeIsRefusal(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"error":"User not found"}`))
 	}))
 	defer srv.Close()
 	_, err := clientFor(srv.URL).Suspension(context.Background(), "42", "suspend", "comm")

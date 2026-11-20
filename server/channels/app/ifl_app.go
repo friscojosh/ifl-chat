@@ -103,7 +103,7 @@ func (a *App) IFLPanelSession(rctx request.CTX, token string) (*model.Session, *
 // IFLMirrorActiveChange asks the site first when an admin deactivates or
 // reactivates a site-linked member (spec §3, Started in chat). It fails
 // closed: if the site callback is not configured, the change is refused.
-func (a *App) IFLMirrorActiveChange(rctx request.CTX, target *model.User, active bool, actorUsername string) *model.AppError {
+func (a *App) IFLMirrorActiveChange(rctx request.CTX, target *model.User, active, permanentDelete bool, actorUsername string) *model.AppError {
 	cfg := iflConfig()
 	if !ifl.ShouldMirror(target.AuthService, actorUsername, cfg.ServiceUsername, false) {
 		return nil
@@ -124,9 +124,13 @@ func (a *App) IFLMirrorActiveChange(rctx request.CTX, target *model.User, active
 		action = "restore"
 	}
 	res, err := ifl.NewSiteClient(cfg).Suspension(rctx.Context(), *target.AuthData, action, actorUsername)
-	if !active && errors.Is(err, ifl.ErrNoSiteAccount) {
-		// The site account is gone (deleted); there is nothing to suspend, so
-		// chat may deactivate or delete. A restore still needs a site account.
+	if !active && !permanentDelete && errors.Is(err, ifl.ErrNoSiteAccount) {
+		// The site account is gone (deleted): there is nothing to suspend, so a
+		// reversible deactivation may proceed. A permanent delete still fails
+		// closed, and a restore always needs a site account.
+		rctx.Logger().Warn("IFL: site has no account for this member; allowing chat deactivation",
+			mlog.String("user_id", target.Id), mlog.String("site_id", *target.AuthData),
+			mlog.String("actor", actorUsername))
 		return nil
 	}
 	if err != nil {
