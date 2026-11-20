@@ -225,6 +225,13 @@ def test_unverified_email_on_an_existing_chat_account_is_refused(identity_csv, c
         resolve_identities(rows, load_chat_users(chat_snapshot[0]))
 
 
+def FILE(i, **kw):
+    f = {'id': f'F{i}', 'name': f'{i}.png', 'mode': 'hosted',
+         'url_private_download': f'https://files.slack.com/x/{i}.png'}
+    f.update(kw)
+    return f
+
+
 def test_attachment_overflow_replies_rule():
     """mmetl v0.6.0 keeps 5 files on a post and moves the rest into replies of
     up to 5 each (services/intermediate/export.go createRepliesForAttachments).
@@ -233,7 +240,7 @@ def test_attachment_overflow_replies_rule():
 
     def msg(n, **kw):
         m = {'type': 'message', 'user': 'U1', 'ts': '1.1',
-             'files': [{'id': f'F{i}', 'name': f'{i}.png'} for i in range(n)]}
+             'files': [FILE(i) for i in range(n)]}
         m.update(kw)
         return m
     rule = inventory.mmetl_attachment_replies
@@ -267,3 +274,73 @@ def test_scan_and_reconcile_count_attachment_overflow_replies(tmp_path):
     rows = inventory.reconcile(tmp_path / 'channel_counts.csv', tmp_path / 'i.csv')
     assert rows[0]['expected'] == 2 and rows[0]['import_diff'] == 0
     assert rows[0]['mmetl_extra'] == '1'
+
+
+def _counts(tmp_path, extra, files_import, **imp):
+    (tmp_path / 's.csv').write_text(
+        'folder,messages,mmetl_drops,mmetl_extra,files_import\n'
+        f'pics,1,0,{extra},{files_import}\n')
+    cols = {'mm_name': 'pics', 'posts': 1, 'replies': extra, 'attachments': files_import, 'overflow_replies': extra}
+    cols.update(imp)
+    (tmp_path / 'i.csv').write_text(','.join(cols) + '\n' + ','.join(map(str, cols.values())) + '\n')
+    return inventory.reconcile(tmp_path / 's.csv', tmp_path / 'i.csv')[0]
+
+
+def test_duplicate_file_ids_count_once():
+    up = {f'F{i}' for i in range(12)}
+    m = {'type': 'message', 'user': 'U1', 'ts': '1.1',
+         'files': [FILE(i % 5) for i in range(10)] + [FILE(5)]}   # 6 distinct ids
+    assert len(inventory.importable_files(m, up)) == 6
+    assert inventory.mmetl_attachment_replies(m, up) == 1
+    m['files'] = [FILE(0)] * 10
+    assert inventory.mmetl_attachment_replies(m, up) == 0
+
+
+def test_hidden_tombstone_and_external_files_do_not_count():
+    up = {f'F{i}' for i in range(12)}
+    files = [FILE(i) for i in range(5)] + [
+        FILE(5, mode='hidden_by_limit'), FILE(6, mode='tombstone'),
+        {'id': 'F7', 'name': 'x', 'mode': 'external'}]
+    m = {'type': 'message', 'user': 'U1', 'ts': '1.1', 'files': files}
+    assert len(inventory.importable_files(m, up)) == 5
+    assert inventory.mmetl_attachment_replies(m, up) == 0
+
+
+def test_reconcile_accepts_9_and_10_file_messages(tmp_path):
+    for n in (9, 10):
+        r = _counts(tmp_path, 1, n)
+        assert (r['import_diff'], r['overflow_diff'], r['files_diff']) == (0, 0, 0)
+        assert r['mmetl_extra'] == '1'
+
+
+def test_reconcile_fails_when_claimed_overflow_has_no_import_replies(tmp_path):
+    # claims 1 overflow reply, but the import has none and the totals still balance
+    r = _counts(tmp_path, 1, 9, overflow_replies=0)
+    assert r['overflow_diff'] == -1
+    # no overflow column: the attachment totals are the cross-check
+    r = _counts(tmp_path, 1, 9, attachments=5, overflow_replies='')
+    assert r['files_diff'] == -4
+    # nothing to cross-check against at all: fail closed
+    (tmp_path / 's.csv').write_text('folder,messages,mmetl_drops,mmetl_extra\npics,1,0,1\n')
+    (tmp_path / 'i.csv').write_text('mm_name,posts,replies\npics,1,1\n')
+    assert inventory.reconcile(tmp_path / 's.csv', tmp_path / 'i.csv')[0]['files_diff'] == 'unverifiable'
+
+
+def test_reconcile_cli_exits_nonzero_on_overflow_mismatch(tmp_path):
+    _counts(tmp_path, 1, 9, overflow_replies=0)
+    argv = ['reconcile', '--slack', str(tmp_path / 's.csv'), '--import', str(tmp_path / 'i.csv'),
+            '--out', str(tmp_path / 'o.csv')]
+    assert inventory.main(argv) == 1
+    assert 'mmetl_extra' in read_csv(tmp_path / 'o.csv')[0]
+
+
+def test_import_overflow_replies_are_detected():
+    from rewrite_import import count_overflow_replies
+    post = {'user': 'a', 'create_at': 100, 'message': 'hi', 'attachments': [1] * 5}
+    over = {'user': 'a', 'create_at': 101, 'message': '', 'attachments': [1] * 4}
+    plain = {'user': 'a', 'create_at': 101, 'message': 'text', 'attachments': [1]}
+    other = {'user': 'b', 'create_at': 101, 'message': '', 'attachments': [1]}
+    assert count_overflow_replies([post, over]) == 1
+    assert count_overflow_replies([post, plain]) == 0
+    assert count_overflow_replies([post, other]) == 0
+    assert count_overflow_replies([{**post, 'attachments': [1] * 3}, over]) == 0

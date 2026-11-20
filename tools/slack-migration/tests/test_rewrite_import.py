@@ -94,7 +94,7 @@ def test_rewrite_and_package(setup):
     assert chans['old_stuff-slack']['display_name'] == 'old_stuff'
     assert chans['old_stuff-slack']['deleted_at'] == 1500000200000
     counts = (tmp / 'counts.csv').read_text().splitlines()
-    assert counts[1:] == ['old_stuff-slack,1,0,0,0', 'town-square,1,1,3,1']
+    assert counts[1:] == ['old_stuff-slack,1,0,0,0,0', 'town-square,1,1,3,1,0']
     report = (tmp / 'report.md').read_text()
     assert '- `nosuchthing`: 1' in report and 'partyparrot_ifl' not in report.split('## Problems')[0].split('most used first')[1]
 
