@@ -14432,6 +14432,21 @@
     "description": "Pattern for joining a list into a sentence; {{.OtherItems}} is all items except the last joined by commas, {{.LastItem}} is the final item (e.g. 'a, b and c')."
   },
   {
+    "id": "ifl.email.conflict",
+    "translation": "Another account already uses this email address.",
+    "description": "Error returned when iflgm.com sets a member's email to an address that another chat account holds."
+  },
+  {
+    "id": "ifl.email.invalid",
+    "translation": "The email address is not valid.",
+    "description": "Error returned when iflgm.com sets a member's email to an address that is not a valid email."
+  },
+  {
+    "id": "ifl.email.not_site_linked",
+    "translation": "Only an account that signs in through iflgm.com can have its email set this way.",
+    "description": "Error returned when the iflgm.com email update is used on an account that does not sign in through iflgm.com."
+  },
+  {
     "id": "ifl.panel.bot",
     "translation": "Bot accounts cannot open an iflgm.com panel session.",
     "description": "Error returned when an iflgm.com panel token maps to a bot account."
