@@ -13,6 +13,7 @@ import (
 func (api *API) InitIFL() {
 	api.BaseRoutes.APIRoot.Handle("/ifl/session", api.APIHandler(iflPanelSession)).Methods(http.MethodPost)
 	api.BaseRoutes.APIRoot.Handle("/ifl/users/{user_id:[A-Za-z0-9]+}/email", api.APISessionRequired(iflUpdateEmail)).Methods(http.MethodPut)
+	api.BaseRoutes.APIRoot.Handle("/ifl/websocket", api.APIHandlerTrustRequester(iflPanelWebSocket)).Methods(http.MethodGet)
 }
 
 // iflUpdateEmail sets a site-linked member's email (system admin only): the
@@ -100,4 +101,20 @@ func iflMirrorFromAPI(c *Context, target *model.User, active, permanentDelete bo
 		return false
 	}
 	return true
+}
+
+// iflPanelWebSocket is the iflgm.com panel's WebSocket (league chat plan 6).
+// Browsers send chat.iflgm.com cookies with every WebSocket handshake
+// (iflgm.com is the same site, so even SameSite cookies go), and the stock
+// route binds that cookie's session before the client's authentication
+// challenge is read; the router then ignores the challenge
+// (app/platform/websocket_router.go:39-41). The panel authenticates only with
+// its own Bearer session, so this route drops whatever session the handshake
+// carried and lets the challenge decide. Same origin check, same connection
+// handling; a resume (connection_id) never applies because the handshake has
+// no user, so every connection starts fresh (hello at sequence 0) and the
+// panel reconciles after every reconnect.
+func iflPanelWebSocket(c *Context, w http.ResponseWriter, r *http.Request) {
+	c.AppContext = c.AppContext.WithSession(&model.Session{})
+	connectWebSocket(c, w, r)
 }
