@@ -72,13 +72,14 @@ def rewrite_user(u, ident, now_ms):
 
 def rewrite(lines, identities, channel_map, chat_usernames, system_emoji, custom_emoji,
             attachments_dir, now_ms, expect_existing=()):
-    """Return (rewritten lines, per-channel counts, problems, unknown emoji)."""
+    """Return (rewritten lines, per-channel counts, problems, unknown emoji, reactions moved)."""
     by_username = {i['username']: i for i in identities.values()}
     display = {r['mm_name']: r['mm_display_name'] for r in channel_map}
     known_users = set(chat_usernames)
     out, problems = [], []
     counts = collections.defaultdict(collections.Counter)
     unknown_emoji = collections.Counter()
+    moved = [0]
     users_seen = set()
     existing_seen = set()
     for n, raw in enumerate(lines, 1):
@@ -130,6 +131,11 @@ def rewrite(lines, identities, channel_map, chat_usernames, system_emoji, custom
                         problems.append(f'line {n}: attachment {a["path"]} is missing')
                 for r in it.get('reactions') or []:
                     c['reactions'] += 1
+                    if r.get('create_at', 0) < it.get('create_at', 0):
+                        # mmetl can stamp a reaction 1 ms before its post; the
+                        # import validator rejects that.
+                        r['create_at'] = it['create_at']
+                        moved[0] += 1
                     if r.get('user') not in users_seen and r.get('user') not in known_users:
                         problems.append(f'line {n}: reaction by unknown user {r.get("user")}')
                     name = r.get('emoji_name')
@@ -142,7 +148,7 @@ def rewrite(lines, identities, channel_map, chat_usernames, system_emoji, custom
         if name not in existing_seen:
             problems.append(f'{name}: no Slack history is linked to this existing chat account '
                             '(check its identity_map.csv row is confirmed)')
-    return out, counts, problems, unknown_emoji
+    return out, counts, problems, unknown_emoji, moved[0]
 
 
 def package(jsonl_lines, attachments_dir, out_zip):
@@ -180,7 +186,7 @@ def main(argv=None):
         identities = resolve_identities(read_csv(a.identity), chat_users)
         with open(a.input, encoding='utf-8') as f:
             lines = [ln for ln in f if ln.strip()]
-        out, counts, problems, unknown = rewrite(
+        out, counts, problems, unknown, moved = rewrite(
             lines, identities, read_csv(a.channel_map),
             {u['username'].lower() for u in chat_users}, load_system_emoji(a.system_emoji),
             custom_emoji_names(a.emoji_map), a.attachments_dir, now_ms, a.expect_existing)
@@ -196,6 +202,7 @@ def main(argv=None):
               f'- reactions: {sum(c["reactions"] for c in counts.values())}',
               f'- attachments: {sum(c["attachments"] for c in counts.values())}',
               f'- problems: {len(problems)}',
+              f'- reactions moved to their post time: {moved}',
               f'- reactions whose emoji is neither built in nor imported: '
               f'{sum(unknown.values())} uses of {len(unknown)} names', '',
               '## Unknown reaction emoji (most used first)', '']
@@ -203,7 +210,7 @@ def main(argv=None):
     report += ['', '## Problems', ''] + [f'- {p}' for p in problems[:500]]
     with open(a.report, 'w', encoding='utf-8') as f:
         f.write('\n'.join(report) + '\n')
-    print('\n'.join(report[:9]))
+    print('\n'.join(report[:10]))
     if problems:
         print(f'error: {len(problems)} problems; see {a.report}', file=sys.stderr)
         return 1

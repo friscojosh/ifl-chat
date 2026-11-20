@@ -130,3 +130,20 @@ def test_expect_existing(setup):
     assert ri.main(args + ['--expect-existing', 'josh_0']) == 0
     assert ri.main(args + ['--expect-existing', 'ifl-relay']) == 1
     assert 'ifl-relay: no Slack history is linked' in (tmp / 'report.md').read_text()
+
+
+def test_reaction_not_before_its_post(setup):
+    """mmetl can stamp a reaction 1 ms before its post; the import validator rejects that."""
+    tmp, args = setup
+    data = lines()
+    data[-2]['post']['create_at'] = 10
+    data[-2]['post']['reactions'][0]['create_at'] = 9
+    data[-2]['post']['replies'][0]['reactions'] = [
+        {'user': 'miami.brad', 'emoji_name': 'thumbsup', 'create_at': 3}]
+    (tmp / 'data.jsonl').write_text('\n'.join(json.dumps(x) for x in data) + '\n')
+    assert ri.main(args) == 0
+    out, _ = read_import(tmp / 'import.zip')
+    post = [x['post'] for x in out if x['type'] == 'post' and x['post']['channel'] == 'town-square'][0]
+    assert [r['create_at'] for r in post['reactions']] == [10, 10, 10]
+    assert post['replies'][0]['reactions'][0]['create_at'] == 5
+    assert '- reactions moved to their post time: 4' in (tmp / 'report.md').read_text()
