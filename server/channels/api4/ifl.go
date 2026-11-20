@@ -6,11 +6,53 @@ import (
 	"net/http"
 
 	"github.com/mattermost/mattermost/server/public/model"
+	"github.com/mattermost/mattermost/server/public/shared/mlog"
 	"github.com/mattermost/mattermost/server/v8/channels/app/ifl"
 )
 
 func (api *API) InitIFL() {
 	api.BaseRoutes.APIRoot.Handle("/ifl/session", api.APIHandler(iflPanelSession)).Methods(http.MethodPost)
+	api.BaseRoutes.APIRoot.Handle("/ifl/users/{user_id:[A-Za-z0-9]+}/email", api.APISessionRequired(iflUpdateEmail)).Methods(http.MethodPut)
+}
+
+// iflUpdateEmail sets a site-linked member's email (system admin only): the
+// site's relay keeps chat's email in step with iflgm.com. PUT .../users/{id}/patch
+// cannot, because chat keeps an OAuth user's old email on an untrusted update.
+func iflUpdateEmail(c *Context, w http.ResponseWriter, r *http.Request) {
+	c.RequireUserId()
+	if c.Err != nil {
+		return
+	}
+	if !c.App.SessionHasPermissionTo(*c.AppContext.Session(), model.PermissionManageSystem) {
+		c.SetPermissionError(model.PermissionManageSystem)
+		return
+	}
+	var body struct {
+		Email string `json:"email"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<10)).Decode(&body); err != nil || body.Email == "" {
+		c.SetInvalidParam("email")
+		return
+	}
+
+	auditRec := c.MakeAuditRecord("iflUpdateEmail", model.AuditStatusFail)
+	defer c.LogAuditRec(auditRec)
+	model.AddEventParameterToAuditRec(auditRec, "user_id", c.Params.UserId)
+	model.AddEventParameterToAuditRec(auditRec, "email", body.Email)
+
+	user, appErr := c.App.IFLUpdateEmail(c.AppContext, c.Params.UserId, body.Email)
+	if appErr != nil {
+		c.Err = appErr
+		return
+	}
+	auditRec.Success()
+	auditRec.AddEventResultState(user)
+	auditRec.AddEventObjectType("user")
+
+	c.App.SanitizeProfile(user, c.IsSystemAdmin())
+	if err := json.NewEncoder(w).Encode(user); err != nil {
+		c.Logger.Warn("Error while writing response", mlog.Err(err))
+	}
 }
 
 func iflPanelSession(c *Context, w http.ResponseWriter, r *http.Request) {

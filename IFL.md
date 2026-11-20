@@ -6,6 +6,7 @@ IFL Chat is the Inception Fantasy League's chat service: a fork of Mattermost Te
 
 - **Sign-in through iflgm.com.** The site's sign-in is presented as a GitLab-shaped OAuth provider, so the standard "GitLab" button signs members in. After the site confirms a member's eligibility, the member is reactivated if needed, provisioned, and joined to the league team.
 - **Panel sessions.** `POST /api/v4/ifl/session` accepts a signed, single-use panel token from the site and opens a chat session for the embedded panel (with a CSRF token).
+- **Email sync.** `PUT /api/v4/ifl/users/{user_id}/email` (system admin only) lets the site's relay set a site-linked member's email. The upstream patch route cannot: chat keeps an OAuth user's old email on an untrusted update. It answers 400 for an account that does not sign in through iflgm.com and 409 `ifl.email.conflict` when another account holds the address. A panel session also brings an existing member's email and name up to date from the panel token, as an OAuth sign-in does (an email held by another account is skipped).
 - **Linked suspensions.** Banning or deactivating a user in chat is reported to iflgm.com, so a ban in chat is a ban on the site.
 - **Site client.** Server-to-server calls to the site go through `server/channels/app/ifl/site_client.go` using the internal secret. Redirects are never followed.
 
@@ -22,14 +23,14 @@ Found with `grep -rn "// IFL:" server`. Keep every one when merging upstream.
 | `server/channels/app/oauth.go:769` | `CompleteOAuth` signup action (bypasses `LoginByOAuth`): the same reactivation and provisioning. |
 | `server/channels/app/oauth.go:873` | `LoginByOAuth`, after the site confirms eligibility: reactivate, provision, join the team. |
 | `server/config/client.go:454` | Shows the iflgm.com sign-in as a GitLab-shaped provider. |
-| `server/channels/api4/ifl.go:1` | New file: the panel session route. |
+| `server/channels/api4/ifl.go:1` | New file: the panel session and email sync routes. |
 | `server/channels/app/ifl_app.go:1` | New file: app-level glue for `server/channels/app/ifl`. |
 
-New, IFL-only code: `server/channels/app/ifl/` (config, panel token, site client, actor, tests), `server/channels/api4/ifl.go`, `server/channels/app/ifl_app.go`, `server/build/Dockerfile.ifl`, `.github/workflows/ifl-*.yml`, `tools/slack-migration/` (Slack migration tools, Python; not part of the server build), this file.
+New, IFL-only code: `server/channels/app/ifl/` (config, panel token, site client, actor, profile, tests), `server/channels/api4/ifl.go`, `server/channels/app/ifl_app.go`, `server/build/Dockerfile.ifl`, `.github/workflows/ifl-*.yml`, `tools/slack-migration/` (Slack migration tools, Python; not part of the server build), this file.
 
 ### The `en.json` exception
 
-`server/i18n/en.json` carries six `ifl.*` message strings (`ifl.panel.*` and `ifl.suspension.*`). It is the one upstream edit with no `// IFL:` marker because JSON has no comments. When merging, keep all `ifl.*` entries; merge conflicts here are usually adjacent-line additions, so keep both sides.
+`server/i18n/en.json` carries nine `ifl.*` message strings (`ifl.email.*`, `ifl.panel.*` and `ifl.suspension.*`). It is the one upstream edit with no `// IFL:` marker because JSON has no comments. When merging, keep all `ifl.*` entries; merge conflicts here are usually adjacent-line additions, so keep both sides.
 
 ## Configuration
 

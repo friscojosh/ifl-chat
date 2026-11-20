@@ -15,6 +15,7 @@ import (
 	"github.com/mattermost/mattermost/server/public/shared/mlog"
 	"github.com/mattermost/mattermost/server/public/shared/request"
 	"github.com/mattermost/mattermost/server/v8/channels/app/ifl"
+	"github.com/mattermost/mattermost/server/v8/channels/store"
 )
 
 const iflPanelJTITokenType = "ifl_panel_jti"
@@ -85,6 +86,7 @@ func (a *App) IFLPanelSession(rctx request.CTX, token string) (*model.Session, *
 	if user.IsBot {
 		return nil, model.NewAppError("IFLPanelSession", "ifl.panel.bot", nil, "", http.StatusForbidden)
 	}
+	user = a.iflSyncPanelProfile(rctx, user, claims)
 	if user, appErr = a.IFLReactivateIfNeeded(rctx, user); appErr != nil {
 		return nil, appErr
 	}
@@ -144,4 +146,71 @@ func (a *App) IFLMirrorActiveChange(rctx request.CTX, target *model.User, active
 		return model.NewAppError("IFLMirrorActiveChange", "ifl.suspension.not_eligible", map[string]any{"Reason": reason}, "", http.StatusConflict)
 	}
 	return nil
+}
+
+// iflSyncPanelProfile brings an existing member's email and name up to date
+// from the panel token, as LoginByOAuth's UpdateOAuthUserAttrs does at an
+// OAuth sign-in. Like upstream, an email that another account holds is
+// skipped silently, and a failed update never blocks the session.
+func (a *App) iflSyncPanelProfile(rctx request.CTX, user *model.User, claims *ifl.PanelClaims) *model.User {
+	if !ifl.EmailSyncAllowed(user.AuthService) {
+		return user
+	}
+	cur := ifl.Profile{Email: user.Email, FirstName: user.FirstName, LastName: user.LastName}
+	next, emailChanged, nameChanged := ifl.PanelProfileChanges(cur, claims.Email, claims.Name)
+	if emailChanged {
+		if holder, _ := a.GetUserByEmail(next.Email); holder != nil && holder.Id != user.Id {
+			next.Email, emailChanged = user.Email, false
+		}
+	}
+	if !emailChanged && !nameChanged {
+		return user
+	}
+	updated := user.DeepCopy()
+	updated.Email, updated.FirstName, updated.LastName = next.Email, next.FirstName, next.LastName
+	res, err := a.Srv().Store().User().Update(rctx, updated, true)
+	if err != nil {
+		rctx.Logger().Warn("IFL: panel session could not sync the member's email or name",
+			mlog.String("user_id", user.Id), mlog.Err(err))
+		return user
+	}
+	a.InvalidateCacheForUser(user.Id)
+	a.sendUpdatedUserEvent(res.New)
+	return res.New
+}
+
+// IFLUpdateEmail sets the email of a site-linked (GitLab) member with a
+// trusted update: an ordinary update keeps an OAuth user's old email
+// (store/sqlstore/user_store.go, trustedUpdateData). Used by the site's relay.
+func (a *App) IFLUpdateEmail(rctx request.CTX, userID, email string) (*model.User, *model.AppError) {
+	normalized, ok := ifl.NormalizeEmail(email)
+	if !ok {
+		return nil, model.NewAppError("IFLUpdateEmail", "ifl.email.invalid", nil, "", http.StatusBadRequest)
+	}
+	user, appErr := a.GetUser(rctx, userID)
+	if appErr != nil {
+		return nil, appErr
+	}
+	if !ifl.EmailSyncAllowed(user.AuthService) {
+		return nil, model.NewAppError("IFLUpdateEmail", "ifl.email.not_site_linked", nil, "auth_service="+user.AuthService, http.StatusBadRequest)
+	}
+	if user.Email == normalized {
+		return user, nil
+	}
+	if holder, _ := a.GetUserByEmail(normalized); holder != nil && holder.Id != user.Id {
+		return nil, model.NewAppError("IFLUpdateEmail", "ifl.email.conflict", nil, "", http.StatusConflict)
+	}
+	updated := user.DeepCopy()
+	updated.Email = normalized
+	res, err := a.Srv().Store().User().Update(rctx, updated, true)
+	if err != nil {
+		var conErr *store.ErrConflict
+		if errors.As(err, &conErr) && conErr.Resource == "Email" {
+			return nil, model.NewAppError("IFLUpdateEmail", "ifl.email.conflict", nil, "", http.StatusConflict).Wrap(err)
+		}
+		return nil, model.NewAppError("IFLUpdateEmail", "app.user.update.finding.app_error", nil, "", http.StatusInternalServerError).Wrap(err)
+	}
+	a.InvalidateCacheForUser(user.Id)
+	a.sendUpdatedUserEvent(res.New)
+	return res.New, nil
 }
