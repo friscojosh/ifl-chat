@@ -51,6 +51,7 @@ func TestVerifyPanelTokenRejects(t *testing.T) {
 		"bad jti":         func(m jwt.MapClaims) { m["jti"] = "short" },
 		"no email":        func(m jwt.MapClaims) { delete(m, "email") },
 		"no username":     func(m jwt.MapClaims) { delete(m, "username") },
+		"no name":         func(m jwt.MapClaims) { delete(m, "name") },
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {

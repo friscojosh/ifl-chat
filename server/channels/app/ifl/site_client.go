@@ -25,13 +25,20 @@ type SiteClient struct {
 var siteIDPattern = regexp.MustCompile(`^[0-9]+$`)
 
 func NewSiteClient(cfg Config) *SiteClient {
-	return &SiteClient{cfg: cfg, http: &http.Client{Timeout: 5 * time.Second}}
+	return &SiteClient{cfg: cfg, http: &http.Client{
+		Timeout: 5 * time.Second,
+		// Never follow a redirect: it would forward the shared secret.
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	}}
 }
 
 // Suspension asks the site to suspend or restore a member before chat
 // changes their account (spec §3, Started in chat). Any failure is returned
 // so the caller refuses the chat-side change.
 func (s *SiteClient) Suspension(ctx context.Context, siteID string, action, actor string) (*SuspensionResult, error) {
+	if action != "suspend" && action != "restore" {
+		return nil, fmt.Errorf("unknown suspension action %q", action)
+	}
 	if !s.cfg.CallbackEnabled() {
 		return nil, fmt.Errorf("site callback is not configured")
 	}

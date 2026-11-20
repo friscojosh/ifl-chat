@@ -60,7 +60,7 @@ func VerifyPanelToken(token, secret string, now time.Time) (*PanelClaims, error)
 	if err != nil || id <= 0 {
 		return nil, errors.New("invalid panel token subject")
 	}
-	if !jtiPattern.MatchString(c.ID) || c.Username == "" || c.Email == "" {
+	if !jtiPattern.MatchString(c.ID) || c.Username == "" || c.Email == "" || c.Name == "" {
 		return nil, errors.New("incomplete panel token")
 	}
 	return &PanelClaims{SiteID: id, Username: c.Username, Email: c.Email, Name: c.Name,

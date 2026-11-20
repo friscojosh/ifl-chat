@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -118,5 +119,41 @@ func TestSuspensionRejectsNonNumericSiteID(t *testing.T) {
 func TestSuspensionNotConfigured(t *testing.T) {
 	if _, err := NewSiteClient(Config{}).Suspension(context.Background(), "42", "suspend", "comm"); err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestSuspensionDoesNotFollowRedirects(t *testing.T) {
+	var followed atomic.Bool
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		followed.Store(true)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"suspended":true,"eligible":false}`))
+	}))
+	defer target.Close()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL, http.StatusTemporaryRedirect)
+	}))
+	defer srv.Close()
+
+	if _, err := clientFor(srv.URL).Suspension(context.Background(), "42", "suspend", "comm"); err == nil {
+		t.Fatal("expected error for a redirect")
+	}
+	if followed.Load() {
+		t.Fatal("redirect was followed (and would carry the secret)")
+	}
+}
+
+func TestSuspensionRejectsUnknownAction(t *testing.T) {
+	var called atomic.Bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called.Store(true)
+	}))
+	defer srv.Close()
+
+	if _, err := clientFor(srv.URL).Suspension(context.Background(), "42", "delete", "comm"); err == nil {
+		t.Fatal("expected error")
+	}
+	if called.Load() {
+		t.Fatal("request sent for an unknown action")
 	}
 }
