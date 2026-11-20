@@ -4,7 +4,8 @@
 #   slack-advanced-exporter  v0.4.0 (commit c0f7bf8230cd15d9b44af36d73ce8f0650538c67)
 #     + sae-token-from-env.patch (IFL-maintained): token from SLACK_API_TOKEN,
 #       exit 1 on failure, downloads only from https://files.slack.com with
-#       no redirects, saves only HTTP 200 non-HTML responses.
+#       no redirects, saves only HTTP 200 non-HTML responses; users.list never
+#       follows a redirect and member emails are never logged (counts only).
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 DEST="${1:?usage: build_tools.sh <migration dir>}"

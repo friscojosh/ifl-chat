@@ -1,7 +1,7 @@
-diff --git a/cmd/fetch_attachments.go b/cmd/fetch_attachments.go
+diff --git i/cmd/fetch_attachments.go w/cmd/fetch_attachments.go
 index 541d07d..0d1c0a1 100644
---- a/cmd/fetch_attachments.go
-+++ b/cmd/fetch_attachments.go
+--- i/cmd/fetch_attachments.go
++++ w/cmd/fetch_attachments.go
 @@ -5,10 +5,10 @@ import (
  	"encoding/json"
  	"errors"
@@ -100,10 +100,10 @@ index 541d07d..0d1c0a1 100644
  			}
  
  			// Success at last.
-diff --git a/cmd/fetch_emails.go b/cmd/fetch_emails.go
-index 37dc333..4e62f6f 100644
---- a/cmd/fetch_emails.go
-+++ b/cmd/fetch_emails.go
+diff --git i/cmd/fetch_emails.go w/cmd/fetch_emails.go
+index 37dc333..50d6929 100644
+--- i/cmd/fetch_emails.go
++++ w/cmd/fetch_emails.go
 @@ -25,10 +25,21 @@ var fetchEmailsCmd = &cobra.Command{
  
  func init() {
@@ -127,10 +127,57 @@ index 37dc333..4e62f6f 100644
  	// Open the input archive.
  	r, err := zip.OpenReader(inputArchive)
  	if err != nil {
-diff --git a/main.go b/main.go
+@@ -116,18 +127,20 @@ func processUsersJson(output io.Writer, input io.Reader, slackApiToken string) e
+ 
+ 	verbosePrintln("Updating users.json contents with fetched emails.")
+ 
++	withEmail := 0
+ 	for _, user := range data {
+ 		// These 'ok's only check for type assertion success.
+ 		// Map access would return untyped nil,
+ 		// which is fine, as untyped nil would fail both these type assertions.
+-		name, _ := user["name"].(string)
+-
+ 		if userid, ok := user["id"].(string); ok {
+ 			if profile, ok := user["profile"].(map[string]interface{}); ok {
+ 				email := emails[userid]
+ 
+ 				profile["email"] = email
+-				log.Printf("%q (%q) -> %q", name, userid, email)
++				// IFL: never log an email (or a name); only count them.
++				if email != "" {
++					withEmail++
++				}
+ 			} else {
+ 				log.Printf("User %q doesn't have 'profile' in JSON file (unexpected error!)", userid)
+ 			}
+@@ -135,6 +148,7 @@ func processUsersJson(output io.Writer, input io.Reader, slackApiToken string) e
+ 			log.Print("Some user array entry doesn't have id, skipping")
+ 		}
+ 	}
++	log.Printf("IFL: %d users in users.json, %d with an email", len(data), withEmail)
+ 	enc := json.NewEncoder(output)
+ 	// The same indent level as export zip uses.
+ 	enc.SetIndent("", "    ")
+@@ -144,7 +158,13 @@ func processUsersJson(output io.Writer, input io.Reader, slackApiToken string) e
+ func fetchUserEmails(token string) (map[string]string, error) {
+ 	verbosePrintln("Fetching emails from Slack API")
+ 
+-	client := &http.Client{}
++	// IFL: the token goes only to this fixed URL, and a redirect is never
++	// followed, so it cannot be carried to another host.
++	client := &http.Client{
++		CheckRedirect: func(req *http.Request, via []*http.Request) error {
++			return http.ErrUseLastResponse
++		},
++	}
+ 	req, err := http.NewRequest("GET", "https://slack.com/api/users.list", nil)
+ 	if err != nil {
+ 		return nil, fmt.Errorf("Got error %s when building the request", err.Error())
+diff --git i/main.go w/main.go
 index 7ee04ba..04f8c93 100644
---- a/main.go
-+++ b/main.go
+--- i/main.go
++++ w/main.go
 @@ -1,9 +1,14 @@
  package main
  
