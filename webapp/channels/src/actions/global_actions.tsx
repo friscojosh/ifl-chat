@@ -40,6 +40,7 @@ import BrowserStore from 'stores/browser_store';
 import LocalStorageStore from 'stores/local_storage_store';
 import store from 'stores/redux_store';
 
+import {markSignedOut as markIflSignedOut} from 'components/login/ifl_signin'; // IFL: iflgm.com sign-in
 import SubMenuModal from 'components/widgets/menu/menu_modals/submenu_modal/submenu_modal';
 
 import WebSocketClient from 'client/web_websocket_client';
@@ -272,6 +273,7 @@ export function emitUserLoggedOutEvent(redirectTo = '/', shouldSignalLogout = tr
     // This bit is otherwise used to detect session expirations on the login page.
     if (userAction) {
         LocalStorageStore.setWasLoggedIn(false);
+        markIflSignedOut(); // IFL: the login page then shows the iflgm.com button instead of signing straight back in
     }
 
     dispatch(logout()).then(() => {

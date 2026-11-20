@@ -40,7 +40,6 @@ import Markdown from 'components/markdown';
 import SaveButton from 'components/save_button';
 import EntraIdIcon from 'components/widgets/icons/entra_id_icon';
 import LockIcon from 'components/widgets/icons/lock_icon';
-import LoginGitlabIcon from 'components/widgets/icons/login_gitlab_icon';
 import LoginGoogleIcon from 'components/widgets/icons/login_google_icon';
 import LoginOpenIDIcon from 'components/widgets/icons/login_openid_icon';
 import Input, {SIZE} from 'components/widgets/inputs/input/input';
@@ -56,6 +55,7 @@ import {setCSRFFromCookie} from 'utils/utils';
 import type {GlobalState} from 'types/store';
 
 import GuestMagicLinkCard from './guest_magic_link_card';
+import * as IFL from './ifl_signin'; // IFL: iflgm.com sign-in (the GitLab icon import is removed)
 import LoginMfa from './login_mfa';
 
 import './login.scss';
@@ -152,6 +152,12 @@ const Login = ({onCustomizeHeader}: LoginProps) => {
 
     const [desktopLoginLink, setDesktopLoginLink] = useState('');
 
+    // IFL: iflgm.com (the gitlab option) is the only sign-in method, so the page may go straight to it
+    // (decided in an effect below, after session-expiry detection; rules in ./ifl_signin).
+    const iflOnlyIflgm = enableSignUpWithGitLab && !(enableBaseLogin || enableSignUpWithGoogle || enableSignUpWithOffice365 || enableSignUpWithOpenId || enableSignUpWithSaml || enableGuestMagicLink);
+    const [iflAutoSignIn, setIflAutoSignIn] = useState(false);
+    const iflDecided = useRef(false);
+
     const getExternalLoginOptions = () => {
         const externalLoginOptions: ExternalLoginButtonType[] = [];
 
@@ -164,10 +170,14 @@ const Login = ({onCustomizeHeader}: LoginProps) => {
             externalLoginOptions.push({
                 id: 'gitlab',
                 url,
-                icon: <LoginGitlabIcon/>,
-                label: GitLabButtonText || formatMessage({id: 'login.gitlab', defaultMessage: 'GitLab'}),
+                icon: null, // IFL: no GitLab icon
+                label: GitLabButtonText || IFL.IFL_SIGNIN_LABEL, // IFL: iflgm.com label
                 style: {color: GitLabButtonColor, borderColor: GitLabButtonColor},
-                onClick: handleExternalAuth(url, 'gitlab'),
+                onClick: (event: React.MouseEvent) => { // IFL: an explicit sign-in ends the signed-out state
+                    IFL.clearSignedOut();
+                    IFL.recordAttempt();
+                    handleExternalAuth(url, 'gitlab')(event);
+                },
             });
         }
 
@@ -541,6 +551,21 @@ const Login = ({onCustomizeHeader}: LoginProps) => {
         }
     }, [hasError]);
 
+    useEffect(() => { // IFL: decide once, after the mount effect's session-expiry check and with currentUser resolved
+        if (iflDecided.current || initializing) {
+            return;
+        }
+        iflDecided.current = true;
+        if (currentUser || sessionExpired || LocalStorageStore.getWasLoggedIn()) {
+            return;
+        }
+        const url = IFL.autoSignInUrl(iflOnlyIflgm, search, Client4.getOAuthRoute());
+        if (url) {
+            setIflAutoSignIn(true);
+            IFL.startSignIn(url);
+        }
+    }, [initializing, currentUser, sessionExpired, iflOnlyIflgm, search]);
+
     if (initializing) {
         return (<LoadingScreen/>);
     }
@@ -846,6 +871,10 @@ const Login = ({onCustomizeHeader}: LoginProps) => {
             return CustomDescriptionText;
         }
 
+        if (iflOnlyIflgm) { // IFL
+            return IFL.IFL_SIGNIN_CARD_TITLE;
+        }
+
         if (!enableBaseLogin && enableExternalSignup) {
             return formatMessage({id: 'login.cardtitle.external', defaultMessage: 'Log in with one of the following:'});
         }
@@ -925,6 +954,15 @@ const Login = ({onCustomizeHeader}: LoginProps) => {
                             onLogin={postSubmit}
                         />
                     )}
+                />
+            );
+        }
+
+        if (iflAutoSignIn) { // IFL: shown while the browser goes to iflgm.com
+            return (
+                <ColumnLayout
+                    title={IFL.IFL_SIGNIN_STATUS}
+                    message=''
                 />
             );
         }

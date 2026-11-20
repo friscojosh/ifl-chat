@@ -6,11 +6,13 @@ import React from 'react';
 
 import {isDesktopApp} from '@mattermost/shared/utils/user_agent';
 
+import {Client4} from 'mattermost-redux/client';
 import {RequestStatus} from 'mattermost-redux/constants';
 
 import * as loginActions from 'actions/views/login';
 import LocalStorageStore from 'stores/local_storage_store';
 
+import * as IFLSignin from 'components/login/ifl_signin';
 import Login from 'components/login/login';
 
 import mergeObjects from 'packages/mattermost-redux/test/merge_objects';
@@ -313,7 +315,7 @@ describe('components/login/Login', () => {
             state,
         );
 
-        const button = screen.getByRole('link', {name: 'Gitlab Icon GitLab 2'});
+        const button = screen.getByRole('link', {name: 'GitLab 2'}); // IFL: no GitLab icon
 
         expect(button.style.color).toBe('rgb(0, 255, 0)');
         expect(button.style.borderColor).toBe('rgb(0, 255, 0)');
@@ -764,6 +766,205 @@ describe('components/login/Login', () => {
 
             // Password field should be hidden
             expect(screen.queryByLabelText('Password')).not.toBeInTheDocument();
+        });
+    });
+
+    // IFL: sign-in through iflgm.com, presented as the gitlab option.
+    describe('IFL iflgm.com sign-in', () => {
+        const iflState = mergeObjects(baseState, {
+            entities: {
+                general: {
+                    config: {
+                        EnableSignUpWithGitLab: 'true',
+                    },
+                },
+            },
+        });
+
+        let startSignIn: jest.SpyInstance;
+
+        beforeEach(() => {
+            IFLSignin.clearSignedOut();
+            IFLSignin.clearAttempt();
+            jest.mocked(isDesktopApp).mockReturnValue(false);
+            startSignIn = jest.spyOn(IFLSignin, 'startSignIn').mockImplementation(() => {});
+        });
+
+        afterEach(() => {
+            jest.mocked(isDesktopApp).mockReturnValue(false);
+            jest.restoreAllMocks();
+            startSignIn.mockRestore();
+        });
+
+        const renderAt = (state: GlobalState, entry: string) => {
+            const history = createMemoryHistory({initialEntries: [entry]});
+            return renderWithContext(<Login/>, state, {history});
+        };
+
+        it('shows the iflgm.com button with no GitLab icon or wording', () => {
+            const state = mergeObjects(iflState, {entities: {general: {config: {EnableSignInWithEmail: 'true'}}}});
+            const {container} = renderAt(state, '/login');
+
+            const button = screen.getByRole('link', {name: 'Sign in with iflgm.com'});
+            expect(button.querySelector('svg')).toBeNull();
+            expect(screen.queryByLabelText('Gitlab Icon')).not.toBeInTheDocument();
+            expect(container.textContent).not.toMatch(/gitlab/i);
+            expect(startSignIn).not.toHaveBeenCalled();
+        });
+
+        it('keeps GitLabButtonText when set', () => {
+            const state = mergeObjects(iflState, {entities: {general: {config: {EnableSignInWithEmail: 'true', GitLabButtonText: 'Members: iflgm.com'}}}});
+            renderAt(state, '/login');
+
+            expect(screen.getByRole('link', {name: 'Members: iflgm.com'})).toBeInTheDocument();
+        });
+
+        it('goes straight to iflgm.com when it is the only sign-in method, keeping redirect_to', () => {
+            renderAt(iflState, '/login?redirect_to=%2Fifl%2Fchannels%2Ftown-square');
+
+            expect(startSignIn).toHaveBeenCalledTimes(1);
+            expect(startSignIn).toHaveBeenCalledWith(`${Client4.getOAuthRoute()}/gitlab/login?redirect_to=%2Fifl%2Fchannels%2Ftown-square`);
+            expect(screen.getByText('Signing in with iflgm.com…')).toBeInTheDocument();
+            expect(screen.queryByRole('link', {name: 'Sign in with iflgm.com'})).not.toBeInTheDocument();
+        });
+
+        it('does not redirect when the URL carries an error to show', () => {
+            renderAt(iflState, '/login?extra=login_error&message=Not%20eligible');
+
+            expect(startSignIn).not.toHaveBeenCalled();
+            expect(screen.getByText('Not eligible')).toBeInTheDocument();
+            expect(screen.getByRole('link', {name: 'Sign in with iflgm.com'})).toBeInTheDocument();
+            expect(screen.getByText('Sign in with your iflgm.com account')).toBeInTheDocument();
+        });
+
+        it('does not redirect for any extra parameter', () => {
+            renderAt(iflState, `/login?extra=${Constants.TERMS_REJECTED}`);
+
+            expect(startSignIn).not.toHaveBeenCalled();
+            expect(screen.getByRole('link', {name: 'Sign in with iflgm.com'})).toBeInTheDocument();
+        });
+
+        it('does not redirect again soon after an attempt came back to the login page', () => {
+            IFLSignin.recordAttempt();
+            renderAt(iflState, '/login');
+
+            expect(startSignIn).not.toHaveBeenCalled();
+            expect(screen.getByRole('link', {name: 'Sign in with iflgm.com'})).toBeInTheDocument();
+        });
+
+        it('does not redirect after the member signs out, until an explicit sign-in', async () => {
+            IFLSignin.markSignedOut();
+            renderAt(iflState, '/login');
+
+            expect(startSignIn).not.toHaveBeenCalled();
+            const button = screen.getByRole('link', {name: 'Sign in with iflgm.com'});
+
+            button.addEventListener('click', (e) => e.preventDefault());
+            await userEvent.click(button);
+            expect(IFLSignin.wasSignedOut()).toBe(false);
+        });
+
+        it('marks a user-initiated logout as signed out', () => {
+            const {emitUserLoggedOutEvent} = jest.requireActual('actions/global_actions');
+            try {
+                emitUserLoggedOutEvent('/', false, true);
+            } catch {
+                // the redux store is not set up here; only the marker matters
+            }
+            expect(IFLSignin.wasSignedOut()).toBe(true);
+        });
+
+        it('does not redirect when another sign-in method is enabled', () => {
+            for (const extra of [{EnableSignInWithEmail: 'true'}, {EnableSignInWithUsername: 'true'}, {EnableSignUpWithOpenId: 'true'}]) {
+                const state = mergeObjects(iflState, {entities: {general: {config: extra}}});
+                const {unmount} = renderAt(state, '/login');
+                unmount();
+            }
+
+            expect(startSignIn).not.toHaveBeenCalled();
+        });
+
+        it('forwards only redirect_to: any other parameter shows the button', () => {
+            for (const query of ['t=invite', 'id=abc', 'desktop_token=x', 'login_hint=a%40b.c', 'foo=1', 'redirect_to=%2Fifl&t=invite', 'redirect_to=%2Fa&redirect_to=%2Fb']) {
+                const {unmount} = renderAt(iflState, `/login?${query}`);
+                expect(screen.getByRole('link', {name: 'Sign in with iflgm.com'})).toBeInTheDocument();
+                unmount();
+            }
+
+            expect(startSignIn).not.toHaveBeenCalled();
+        });
+
+        it('does not redirect for a redirect_to that is not a relative path', () => {
+            for (const target of ['//evil.example', 'https://evil.example/', 'data:text/html,x', 'ifl/channels']) {
+                const {unmount} = renderAt(iflState, `/login?redirect_to=${encodeURIComponent(target)}`);
+                unmount();
+            }
+
+            expect(startSignIn).not.toHaveBeenCalled();
+        });
+
+        it('redirects with no query when there is no redirect_to', () => {
+            renderAt(iflState, '/login');
+
+            expect(startSignIn).toHaveBeenCalledWith(`${Client4.getOAuthRoute()}/gitlab/login`);
+        });
+
+        it('does not redirect when the session expired, and shows the notice', () => {
+            LocalStorageStore.setWasLoggedIn(true);
+            renderAt(iflState, '/login');
+
+            expect(startSignIn).not.toHaveBeenCalled();
+            expect(screen.getByText('Your session has expired. Please log in again.')).toBeInTheDocument();
+            expect(screen.getByRole('link', {name: 'Sign in with iflgm.com'})).toBeInTheDocument();
+        });
+
+        it('does not redirect a signed-in user', () => {
+            const state = mergeObjects(iflState, {entities: {users: {currentUserId: 'user1'}}});
+            renderAt(state, '/login');
+
+            expect(startSignIn).not.toHaveBeenCalled();
+        });
+
+        it('does not redirect while the store is initializing, then decides once it is ready', () => {
+            const state = mergeObjects(iflState, {storage: {initialized: false}});
+            const {replaceStoreState} = renderAt(state, '/login');
+            expect(startSignIn).not.toHaveBeenCalled();
+
+            replaceStoreState(iflState);
+            expect(startSignIn).toHaveBeenCalledTimes(1);
+        });
+
+        it('fails closed when storage cannot be read', () => {
+            jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+                throw new Error('blocked');
+            });
+
+            expect(IFLSignin.wasSignedOut()).toBe(true);
+            expect(IFLSignin.hasRecentAttempt()).toBe(true);
+            expect(IFLSignin.autoSignInUrl(true, '', '/oauth')).toBeNull();
+        });
+
+        it('keeps marks in memory when storage cannot be written', () => {
+            jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+                throw new Error('blocked');
+            });
+
+            expect(IFLSignin.wasSignedOut()).toBe(false);
+            IFLSignin.markSignedOut();
+            expect(IFLSignin.wasSignedOut()).toBe(true);
+
+            IFLSignin.clearSignedOut();
+            expect(IFLSignin.hasRecentAttempt()).toBe(false);
+            IFLSignin.recordAttempt();
+            expect(IFLSignin.hasRecentAttempt()).toBe(true);
+            expect(IFLSignin.autoSignInUrl(true, '', '/oauth')).toBeNull();
+        });
+
+        it('does not redirect in the desktop app', () => {
+            jest.mocked(isDesktopApp).mockReturnValue(true);
+            renderAt(iflState, '/login');
+
+            expect(startSignIn).not.toHaveBeenCalled();
         });
     });
 });
