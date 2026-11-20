@@ -25,7 +25,7 @@ Found with `grep -rn "// IFL:" server`. Keep every one when merging upstream.
 | `server/channels/api4/ifl.go:1` | New file: the panel session route. |
 | `server/channels/app/ifl_app.go:1` | New file: app-level glue for `server/channels/app/ifl`. |
 
-New, IFL-only code: `server/channels/app/ifl/` (config, panel token, site client, actor, tests), `server/channels/api4/ifl.go`, `server/channels/app/ifl_app.go`, `server/build/Dockerfile.ifl`, `.github/workflows/ifl-*.yml`, this file.
+New, IFL-only code: `server/channels/app/ifl/` (config, panel token, site client, actor, tests), `server/channels/api4/ifl.go`, `server/channels/app/ifl_app.go`, `server/build/Dockerfile.ifl`, `.github/workflows/ifl-*.yml`, `tools/slack-migration/` (Slack migration tools, Python; not part of the server build), this file.
 
 ### The `en.json` exception
 

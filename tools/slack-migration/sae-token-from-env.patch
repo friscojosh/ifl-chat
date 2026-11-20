@@ -1,0 +1,196 @@
+diff --git i/cmd/fetch_attachments.go w/cmd/fetch_attachments.go
+index 541d07d..0d1c0a1 100644
+--- i/cmd/fetch_attachments.go
++++ w/cmd/fetch_attachments.go
+@@ -5,10 +5,10 @@ import (
+ 	"encoding/json"
+ 	"errors"
+ 	"fmt"
+-	"io"
+ 	"io/ioutil"
+ 	"log"
+ 	"net/http"
++	"net/url"
+ 	"os"
+ 	"strings"
+ 
+@@ -30,6 +30,7 @@ func init() {
+ }
+ 
+ func fetchAttachments(cmd *cobra.Command, args []string) error {
++	attachmentsApiToken = tokenFromEnv(attachmentsApiToken)
+ 	// Open the input archive.
+ 	r, err := zip.OpenReader(inputArchive)
+ 	if err != nil {
+@@ -126,7 +127,13 @@ func processChannelFile(w *zip.Writer, file *zip.File, inBuf []byte, token strin
+ 			continue
+ 		}
+ 
+-		client := &http.Client{}
++		// IFL: the token goes only to https://files.slack.com. Redirects are
++		// not followed, so it cannot be carried to another host.
++		client := &http.Client{
++			CheckRedirect: func(req *http.Request, via []*http.Request) error {
++				return http.ErrUseLastResponse
++			},
++		}
+ 
+ 		// Loop through all the files.
+ 		for _, file := range post.Files {
+@@ -144,22 +151,18 @@ func processChannelFile(w *zip.Writer, file *zip.File, inBuf []byte, token strin
+ 				downloadUrl = file.UrlPrivate
+ 			}
+ 
+-			// Build the output file path.
+-			outputPath := "__uploads/" + file.Id + "/" + file.Name
+-
+-			// Create the file in the zip output file.
+-			outFile, err := w.Create(outputPath)
+-			if err != nil {
+-				log.Print("++++++ Failed to create output file in output archive: " + outputPath + "\n\n" + err.Error() + "\n")
++			// IFL: only files hosted by Slack are downloaded (with the token).
++			parsed, err := url.Parse(downloadUrl)
++			if err != nil || parsed.Scheme != "https" || parsed.Hostname() != "files.slack.com" {
++				log.Print("++++++ IFL: not a files.slack.com URL, skipped: " + file.Id)
+ 				continue
+ 			}
+ 
+ 			verbosePrintln(fmt.Sprintf("Downloading file %s (%s)", file.Id, file.Name))
+ 
+-			// Fetch the file.
+-			req, err := http.NewRequest("GET", downloadUrl, nil)
++			req, err := http.NewRequest("GET", parsed.String(), nil)
+ 			if err != nil {
+-				log.Print("++++++ Failed to create file download request: " + downloadUrl)
++				log.Print("++++++ Failed to create file download request: " + file.Id)
+ 				continue
+ 			}
+ 			if token != "" {
+@@ -167,15 +170,28 @@ func processChannelFile(w *zip.Writer, file *zip.File, inBuf []byte, token strin
+ 			}
+ 			response, err := client.Do(req)
+ 			if err != nil {
+-				log.Print("++++++ Failed to download the file: " + downloadUrl)
++				log.Print("++++++ Failed to download the file: " + file.Id)
++				continue
++			}
++			body, err := ioutil.ReadAll(response.Body)
++			response.Body.Close()
++			// IFL: keep only a real file; an error page or redirect is a failure.
++			if err != nil || response.StatusCode != http.StatusOK ||
++				strings.HasPrefix(response.Header.Get("Content-Type"), "text/html") {
++				log.Print(fmt.Sprintf("++++++ IFL: download failed (HTTP %d): %s", response.StatusCode, file.Id))
+ 				continue
+ 			}
+-			defer response.Body.Close()
+ 
+-			// Save the file to the output zip file.
+-			_, err = io.Copy(outFile, response.Body)
++			// Build the output file path and save the file.
++			outputPath := "__uploads/" + file.Id + "/" + file.Name
++			outFile, err := w.Create(outputPath)
+ 			if err != nil {
+-				log.Print("++++++ Failed to write the downloaded file to the output archive: " + downloadUrl + "\n\n" + err.Error() + "\n")
++				log.Print("++++++ Failed to create output file in output archive: " + outputPath + "\n\n" + err.Error() + "\n")
++				continue
++			}
++			if _, err = outFile.Write(body); err != nil {
++				log.Print("++++++ Failed to write the downloaded file to the output archive: " + file.Id + "\n\n" + err.Error() + "\n")
++				continue
+ 			}
+ 
+ 			// Success at last.
+diff --git i/cmd/fetch_emails.go w/cmd/fetch_emails.go
+index 37dc333..50d6929 100644
+--- i/cmd/fetch_emails.go
++++ w/cmd/fetch_emails.go
+@@ -25,10 +25,21 @@ var fetchEmailsCmd = &cobra.Command{
+ 
+ func init() {
+ 	fetchEmailsCmd.PersistentFlags().StringVar(&emailsApiToken, "api-token", "", "Slack API token. Can be obtained here: https://api.slack.com/docs/oauth-test-tokens")
+-	fetchEmailsCmd.MarkPersistentFlagRequired("api-token")
++}
++
++// IFL: read the token from SLACK_API_TOKEN so it never appears in argv.
++func tokenFromEnv(flagValue string) string {
++	if flagValue != "" {
++		return flagValue
++	}
++	return os.Getenv("SLACK_API_TOKEN")
+ }
+ 
+ func fetchEmails(cmd *cobra.Command, args []string) error {
++	emailsApiToken = tokenFromEnv(emailsApiToken)
++	if emailsApiToken == "" {
++		return errors.New("set SLACK_API_TOKEN (or --api-token)")
++	}
+ 	// Open the input archive.
+ 	r, err := zip.OpenReader(inputArchive)
+ 	if err != nil {
+@@ -116,18 +127,20 @@ func processUsersJson(output io.Writer, input io.Reader, slackApiToken string) e
+ 
+ 	verbosePrintln("Updating users.json contents with fetched emails.")
+ 
++	withEmail := 0
+ 	for _, user := range data {
+ 		// These 'ok's only check for type assertion success.
+ 		// Map access would return untyped nil,
+ 		// which is fine, as untyped nil would fail both these type assertions.
+-		name, _ := user["name"].(string)
+-
+ 		if userid, ok := user["id"].(string); ok {
+ 			if profile, ok := user["profile"].(map[string]interface{}); ok {
+ 				email := emails[userid]
+ 
+ 				profile["email"] = email
+-				log.Printf("%q (%q) -> %q", name, userid, email)
++				// IFL: never log an email (or a name); only count them.
++				if email != "" {
++					withEmail++
++				}
+ 			} else {
+ 				log.Printf("User %q doesn't have 'profile' in JSON file (unexpected error!)", userid)
+ 			}
+@@ -135,6 +148,7 @@ func processUsersJson(output io.Writer, input io.Reader, slackApiToken string) e
+ 			log.Print("Some user array entry doesn't have id, skipping")
+ 		}
+ 	}
++	log.Printf("IFL: %d users in users.json, %d with an email", len(data), withEmail)
+ 	enc := json.NewEncoder(output)
+ 	// The same indent level as export zip uses.
+ 	enc.SetIndent("", "    ")
+@@ -144,7 +158,13 @@ func processUsersJson(output io.Writer, input io.Reader, slackApiToken string) e
+ func fetchUserEmails(token string) (map[string]string, error) {
+ 	verbosePrintln("Fetching emails from Slack API")
+ 
+-	client := &http.Client{}
++	// IFL: the token goes only to this fixed URL, and a redirect is never
++	// followed, so it cannot be carried to another host.
++	client := &http.Client{
++		CheckRedirect: func(req *http.Request, via []*http.Request) error {
++			return http.ErrUseLastResponse
++		},
++	}
+ 	req, err := http.NewRequest("GET", "https://slack.com/api/users.list", nil)
+ 	if err != nil {
+ 		return nil, fmt.Errorf("Got error %s when building the request", err.Error())
+diff --git i/main.go w/main.go
+index 7ee04ba..04f8c93 100644
+--- i/main.go
++++ w/main.go
+@@ -1,9 +1,14 @@
+ package main
+ 
+ import (
++	"os"
++
+ 	"github.com/grundleborg/slack-advanced-exporter/cmd"
+ )
+ 
+ func main() {
+-	cmd.Execute()
++	// IFL: exit non-zero when a command fails (upstream ignored the error).
++	if err := cmd.Execute(); err != nil {
++		os.Exit(1)
++	}
+ }
