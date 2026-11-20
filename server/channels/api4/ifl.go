@@ -23,6 +23,12 @@ func iflUpdateEmail(c *Context, w http.ResponseWriter, r *http.Request) {
 	if c.Err != nil {
 		return
 	}
+
+	// The audit record comes first, so a refused or malformed call is logged too.
+	auditRec := c.MakeAuditRecord("iflUpdateEmail", model.AuditStatusFail)
+	defer c.LogAuditRec(auditRec)
+	model.AddEventParameterToAuditRec(auditRec, "user_id", c.Params.UserId)
+
 	if !c.App.SessionHasPermissionTo(*c.AppContext.Session(), model.PermissionManageSystem) {
 		c.SetPermissionError(model.PermissionManageSystem)
 		return
@@ -34,10 +40,6 @@ func iflUpdateEmail(c *Context, w http.ResponseWriter, r *http.Request) {
 		c.SetInvalidParam("email")
 		return
 	}
-
-	auditRec := c.MakeAuditRecord("iflUpdateEmail", model.AuditStatusFail)
-	defer c.LogAuditRec(auditRec)
-	model.AddEventParameterToAuditRec(auditRec, "user_id", c.Params.UserId)
 	model.AddEventParameterToAuditRec(auditRec, "email", body.Email)
 
 	user, appErr := c.App.IFLUpdateEmail(c.AppContext, c.Params.UserId, body.Email)
