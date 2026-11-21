@@ -33,21 +33,23 @@ const typeMessage = defineMessages({
         id: 'last_users_message.removed_from_channel.type',
         defaultMessage: 'were **removed from the channel**.',
     },
+
+    // IFL: the team membership messages below say "the league".
     [Posts.POST_TYPES.ADD_TO_TEAM]: {
         id: 'last_users_message.added_to_team.type',
-        defaultMessage: 'were **added to the team** by {actor}.',
+        defaultMessage: 'were **added to the league** by {actor}.',
     },
     [Posts.POST_TYPES.JOIN_TEAM]: {
         id: 'last_users_message.joined_team.type',
-        defaultMessage: '**joined the team**.',
+        defaultMessage: '**joined the league**.',
     },
     [Posts.POST_TYPES.LEAVE_TEAM]: {
         id: 'last_users_message.left_team.type',
-        defaultMessage: '**left the team**.',
+        defaultMessage: '**left the league**.',
     },
     [Posts.POST_TYPES.REMOVE_FROM_TEAM]: {
         id: 'last_users_message.removed_from_team.type',
-        defaultMessage: 'were **removed from the team**.',
+        defaultMessage: 'were **removed from the league**.',
     },
 });
 

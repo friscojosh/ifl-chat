@@ -133,13 +133,14 @@ function renderRemoveFromChannelMessage(post: Post): ReactNode {
     );
 }
 
+// IFL: the four team membership messages below say "the league".
 function renderJoinTeamMessage(post: Post): ReactNode {
     const username = renderUsername(post.props.username);
 
     return (
         <FormattedMessage
             id='api.team.join_team.post_and_forget'
-            defaultMessage='{username} joined the team.'
+            defaultMessage='{username} joined the league.'
             values={{username}}
         />
     );
@@ -151,7 +152,7 @@ function renderLeaveTeamMessage(post: Post): ReactNode {
     return (
         <FormattedMessage
             id='api.team.leave.left'
-            defaultMessage='{username} left the team.'
+            defaultMessage='{username} left the league.'
             values={{username}}
         />
     );
@@ -164,7 +165,7 @@ function renderAddToTeamMessage(post: Post): ReactNode {
     return (
         <FormattedMessage
             id='api.team.add_member.added'
-            defaultMessage='{addedUsername} added to the team by {username}'
+            defaultMessage='{addedUsername} added to the league by {username}'
             values={{
                 username,
                 addedUsername,
@@ -179,7 +180,7 @@ function renderRemoveFromTeamMessage(post: Post): ReactNode {
     return (
         <FormattedMessage
             id='api.team.remove_user_from_team.removed'
-            defaultMessage='{removedUsername} was removed from the team.'
+            defaultMessage='{removedUsername} was removed from the league.'
             values={{
                 removedUsername,
             }}

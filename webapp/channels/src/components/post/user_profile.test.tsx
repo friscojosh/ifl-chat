@@ -211,3 +211,23 @@ describe('PostUserProfile bot attributes in the username popover', () => {
         expect(Client4.getUserCustomProfileAttributesValues).toHaveBeenCalledWith(bot.id);
     });
 });
+
+// IFL: system messages are shown as posted by Goodell Bot.
+describe('PostUserProfile IFL system message author', () => {
+    test('shows "Goodell Bot" instead of "System"', () => {
+        const user = TestHelper.getUserMock({id: 'actor_id', username: 'actor'});
+        renderWithContext(
+            <PostUserProfile
+                isBot={false}
+                isSystemMessage={true}
+                isMobileView={false}
+                location={Locations.CENTER}
+                post={TestHelper.getPostMock({user_id: user.id, type: 'system_join_leave'})}
+            />,
+            {entities: {users: {profiles: {[user.id]: user}}}} as unknown as Partial<GlobalState>,
+        );
+
+        expect(screen.getByText('Goodell Bot')).toBeInTheDocument();
+        expect(screen.queryByText('System')).not.toBeInTheDocument();
+    });
+});

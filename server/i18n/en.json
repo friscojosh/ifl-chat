@@ -4771,7 +4771,7 @@
   },
   {
     "id": "api.team.add_user_to_team.added",
-    "translation": "%v added to the team by %v.",
+    "translation": "%v added to the league by %v.",
     "description": "System post message shown when someone is added to a team; first %v is the added user's username, second %v is the username of the person who added them."
   },
   {
@@ -4921,7 +4921,7 @@
   },
   {
     "id": "api.team.join_team.post_and_forget",
-    "translation": "%v joined the team.",
+    "translation": "%v joined the league.",
     "description": "System post message shown when a user joins a team on their own; %v is that user's username."
   },
   {
@@ -4931,7 +4931,7 @@
   },
   {
     "id": "api.team.leave.left",
-    "translation": "%v left the team.",
+    "translation": "%v left the league.",
     "description": "System message posted in the channel when a user leaves the team; %v is the username. Appears as '<username> left the team.'"
   },
   {
@@ -4961,7 +4961,7 @@
   },
   {
     "id": "api.team.remove_user_from_team.removed",
-    "translation": "%v removed from the team.",
+    "translation": "%v removed from the league.",
     "description": "System message posted in the channel when a user is removed from the team by someone else; %v is the removed user's username."
   },
   {

@@ -8,8 +8,8 @@ import type {UserProfile} from '@mattermost/types/users';
 
 import {ensureString} from 'mattermost-redux/utils/post_utils';
 
+import GoodellBotIcon from 'components/ifl_goodell_bot/goodell_bot_icon'; // IFL: replaces the Mattermost logo import.
 import ProfilePicture from 'components/profile_picture';
-import MattermostLogo from 'components/widgets/icons/mattermost_logo';
 
 import Constants, {UserStatuses} from 'utils/constants';
 import * as PostUtils from 'utils/post_utils';
@@ -86,7 +86,8 @@ export default class PostProfilePicture extends React.PureComponent<Props> {
         const fromWebhook = PostUtils.isFromWebhook(post);
 
         if (isSystemMessage && !compactDisplay && !fromWebhook && !isBot) {
-            return <MattermostLogo className='icon'/>;
+            // IFL: system messages come from Goodell Bot, with its avatar.
+            return <GoodellBotIcon className='icon'/>;
         }
         const fromAutoResponder = PostUtils.fromAutoResponder(post);
 
