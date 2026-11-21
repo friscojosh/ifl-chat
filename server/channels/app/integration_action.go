@@ -153,8 +153,13 @@ func (a *App) DoActionRequest(rctx request.CTX, rawURL string, body []byte) (*ht
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
+	// IFL: trade callbacks to iflgm.com carry the internal secret and the member's site id, and follow no redirect (plan 9).
+	signed := a.iflSignTradeCallback(rctx, inURL, req)
 
 	httpClient := a.getPostActionClient(rctx, inURL, req)
+	if signed {
+		httpClient.CheckRedirect = iflNoRedirect // IFL: see above
+	}
 
 	resp, httpErr := httpClient.Do(req)
 	if httpErr != nil {
