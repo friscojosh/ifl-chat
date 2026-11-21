@@ -28,6 +28,8 @@ export const IFL_EN_STRINGS: Record<string, string> = {
     'onboardingTask.checklist.completed_subtitle': 'We hope IFL Chat is more familiar now.',
 
     // Banners, errors and settings that name the product.
+    'desktop_auth_token.complete.openMattermost': 'Click on <b>Open IFL Chat</b> in the browser prompt to <a>launch the desktop app</a>',
+    'desktop_auth_token.complete.havingTrouble': 'Having trouble logging in? <a>Open IFL Chat in your browser</a>',
     'version_bar.new': 'A new version of IFL Chat is available.',
     'channel_loader.socketError': 'Please check your connection: IFL Chat is unreachable. If the problem persists, tell a league admin.',
     'error.local_storage.title': 'Cannot Load IFL Chat',
