@@ -132,6 +132,11 @@ func (a *App) SessionHasPermissionToChannel(rctx request.CTX, session model.Sess
 		return true, isMember
 	}
 
+	// IFL: the league moderator's permissions apply only in channels the user belongs to (ifl_moderation.go).
+	if !isMember && iflMemberOnlyPermissions[permission.Id] {
+		return false, false
+	}
+
 	if channel.TeamId != "" {
 		return a.SessionHasPermissionToTeam(session, channel.TeamId, permission), isMember
 	}

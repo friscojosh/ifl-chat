@@ -848,7 +848,8 @@ func deletePost(c *Context, w http.ResponseWriter, _ *http.Request) {
 	if permanent {
 		appErr = c.App.PermanentDeletePost(c.AppContext, c.Params.PostId, c.AppContext.Session().UserId)
 	} else {
-		_, appErr = c.App.DeletePost(c.AppContext, c.Params.PostId, c.AppContext.Session().UserId)
+		// IFL: a thread's first message goes, its replies stay (app/ifl_moderation.go).
+		_, appErr = c.App.IFLDeletePost(c.AppContext, post, c.AppContext.Session().UserId)
 	}
 
 	if appErr != nil {

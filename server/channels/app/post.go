@@ -967,7 +967,8 @@ func (a *App) UpdatePost(rctx request.CTX, receivedUpdatedPost *model.Post, upda
 
 	var appErr *model.AppError
 
-	if oldPost.DeleteAt != 0 {
+	// IFL: a thread's deleted first message stays deleted (ifl_moderation.go).
+	if oldPost.DeleteAt != 0 || IFLIsDeletedRoot(oldPost) {
 		appErr = model.NewAppError("UpdatePost", "api.post.update_post.permissions_details.app_error", map[string]any{"PostId": receivedUpdatedPost.Id}, "", http.StatusBadRequest)
 		return nil, false, appErr
 	}

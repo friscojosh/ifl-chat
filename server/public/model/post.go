@@ -638,6 +638,8 @@ func (o *Post) SanitizeProps() {
 	}
 	membersToSanitize := []string{
 		PropsAddChannelMember,
+		// IFL: only the server marks a kept thread root, federated posts included (ifl_post.go).
+		PostPropsIFLDeletedRoot,
 	}
 
 	// Notification-policy markers (silent_notification, force_notification) are
