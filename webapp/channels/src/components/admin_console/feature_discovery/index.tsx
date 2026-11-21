@@ -13,6 +13,7 @@ import {getConfig, getLicense} from 'mattermost-redux/selectors/entities/general
 import {openModal} from 'actions/views/modals';
 
 import withGetCloudSubscription from 'components/common/hocs/cloud/with_get_cloud_subscription';
+import {iflNoUpsell} from 'components/ifl/ifl_upsells'; // IFL: no upsells
 
 import {LicenseSkus} from 'utils/constants';
 import {isCloudLicense} from 'utils/license_utils';
@@ -54,4 +55,4 @@ function mapDispatchToProps(dispatch: Dispatch) {
     };
 }
 
-export default withGetCloudSubscription(connect(mapStateToProps, mapDispatchToProps)(FeatureDiscovery));
+export default iflNoUpsell(withGetCloudSubscription(connect(mapStateToProps, mapDispatchToProps)(FeatureDiscovery))); // IFL: no "try Enterprise" feature discovery

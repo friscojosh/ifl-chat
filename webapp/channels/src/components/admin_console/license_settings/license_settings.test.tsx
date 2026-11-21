@@ -10,6 +10,8 @@ import {LicenseSkus} from 'utils/constants';
 
 import LicenseSettings from './license_settings';
 
+jest.mock('components/ifl/ifl_features', () => ({...jest.requireActual('components/ifl/ifl_features'), IFL_UPSELLS: true})); // IFL: upstream's upsell behaviour (off in IFL Chat; see ifl_upsells.test.tsx)
+
 const flushPromises = () => new Promise(setImmediate);
 
 describe('components/admin_console/license_settings/LicenseSettings', () => {

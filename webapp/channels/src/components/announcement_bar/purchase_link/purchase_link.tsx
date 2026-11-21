@@ -6,6 +6,7 @@ import React, {type JSX} from 'react';
 import {Button} from '@mattermost/shared/components/button';
 
 import useOpenSalesLink from 'components/common/hooks/useOpenSalesLink';
+import {iflNoUpsell} from 'components/ifl/ifl_upsells'; // IFL: no upsells
 
 import './purchase_link.scss';
 
@@ -37,4 +38,4 @@ const PurchaseLink: React.FC<Props> = (props: Props) => {
     );
 };
 
-export default PurchaseLink;
+export default iflNoUpsell(PurchaseLink); // IFL: no "Purchase" link

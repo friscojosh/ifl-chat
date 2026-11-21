@@ -9,6 +9,8 @@ import {render} from 'tests/react_testing_utils';
 import {CloudProducts} from 'utils/constants';
 import {FileSizes} from 'utils/file_utils';
 
+jest.mock('components/ifl/ifl_features', () => ({...jest.requireActual('components/ifl/ifl_features'), IFL_UPSELLS: true})); // IFL: upstream's upsell behaviour (off in IFL Chat; see ifl_upsells.test.tsx)
+
 let mockState: any;
 const mockDispatch = jest.fn();
 const nowMiliseconds = new Date().getTime();

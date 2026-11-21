@@ -15,6 +15,7 @@ import {getLicense} from 'mattermost-redux/selectors/entities/general';
 import useGetUsage from 'components/common/hooks/useGetUsage';
 import useGetUsageDeltas from 'components/common/hooks/useGetUsageDeltas';
 import useOpenPricingModal from 'components/common/hooks/useOpenPricingModal';
+import {IFL_UPSELLS} from 'components/ifl/ifl_features'; // IFL: no upsells
 import AdminPanel from 'components/widgets/admin_console/admin_panel';
 import Input from 'components/widgets/inputs/input/input';
 import TeamIcon from 'components/widgets/team_icon/team_icon';
@@ -152,7 +153,7 @@ export function TeamProfile({team, name, description, onNameChange, onDescriptio
                     </div>
                     <div className='AdminChannelDetails_archiveContainer'>
                         {button()}
-                        {restoreDisabled && !isAirGapped &&
+                        {IFL_UPSELLS && restoreDisabled && !isAirGapped && // IFL: no "View upgrade options"
                             <Button
                                 onClick={openPricingModal}
                                 type='button'

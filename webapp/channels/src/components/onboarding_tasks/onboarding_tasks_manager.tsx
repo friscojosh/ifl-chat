@@ -29,7 +29,7 @@ import Phone from 'components/common/svg_images_components/phone_svg';
 import Security from 'components/common/svg_images_components/security_svg';
 import Sunglasses from 'components/common/svg_images_components/sunglasses_svg';
 import {ELEMENT_ID_FOR_SWITCH_PRODUCT_MENU_BUTTON} from 'components/global_header/left_controls/switch_product_menu';
-import {IFL_APP_DOWNLOAD_PROMPTS, IFL_TEAM_INVITES} from 'components/ifl/ifl_features'; // IFL: no invite or download tasks
+import {IFL_APP_DOWNLOAD_PROMPTS, IFL_TEAM_INVITES, IFL_UPSELLS} from 'components/ifl/ifl_features'; // IFL: no invite, download or trial tasks
 import LearnMoreTrialModal from 'components/learn_more_trial_modal/learn_more_trial_modal';
 import {openMenu} from 'components/menu';
 import {
@@ -151,6 +151,9 @@ export const useTasksList = () => {
     }
     if (!IFL_APP_DOWNLOAD_PROMPTS) {
         delete list.DOWNLOAD_APP;
+    }
+    if (!IFL_UPSELLS) { // IFL: no "Learn more about Enterprise" (trial) task
+        delete list.START_TRIAL;
     }
 
     return Object.values(list);

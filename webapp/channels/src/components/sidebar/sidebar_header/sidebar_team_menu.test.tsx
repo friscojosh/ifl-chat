@@ -14,6 +14,8 @@ import type {GlobalState} from 'types/store';
 
 import SidebarTeamMenu from './sidebar_team_menu';
 
+jest.mock('components/ifl/ifl_features', () => ({...jest.requireActual('components/ifl/ifl_features'), IFL_UPSELLS: true})); // IFL: upstream's upsell behaviour (off in IFL Chat; see ifl_upsells.test.tsx)
+
 describe('components/sidebar/sidebar_header/sidebar_team_menu', () => {
     const currentTeam = TestHelper.getTeamMock({
         id: 'team-id',

@@ -15,6 +15,7 @@ import {getCurrentUser} from 'mattermost-redux/selectors/entities/users';
 import {isAdmin} from 'mattermost-redux/utils/user_utils';
 
 import useOpenSalesLink from 'components/common/hooks/useOpenSalesLink';
+import {iflNoUpsell} from 'components/ifl/ifl_upsells'; // IFL: no upsells
 import StartTrialBtn from 'components/learn_more_trial_modal/start_trial_btn';
 
 import {CloudProducts, LicenseSkus} from 'utils/constants';
@@ -131,4 +132,4 @@ function ADLDAPUpsellBanner() {
     );
 }
 
-export default memo(ADLDAPUpsellBanner);
+export default iflNoUpsell(memo(ADLDAPUpsellBanner)); // IFL: no AD/LDAP upsell banner

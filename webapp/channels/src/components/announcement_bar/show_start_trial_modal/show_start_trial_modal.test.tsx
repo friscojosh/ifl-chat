@@ -7,6 +7,8 @@ import ShowStartTrialModal from 'components/announcement_bar/show_start_trial_mo
 
 import {render} from 'tests/react_testing_utils';
 
+jest.mock('components/ifl/ifl_features', () => ({...jest.requireActual('components/ifl/ifl_features'), IFL_UPSELLS: true})); // IFL: upstream's upsell behaviour (off in IFL Chat; see ifl_upsells.test.tsx)
+
 let mockTotalUsers = 0;
 jest.mock('components/common/hooks/useGetTotalUsersNoBots', () => ({
     __esModule: true,

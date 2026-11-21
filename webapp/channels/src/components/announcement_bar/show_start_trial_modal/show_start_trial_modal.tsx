@@ -13,6 +13,7 @@ import {isModalOpen} from 'selectors/views/modals';
 
 import useGetTotalUsersNoBots from 'components/common/hooks/useGetTotalUsersNoBots';
 import useOpenStartTrialFormModal from 'components/common/hooks/useOpenStartTrialFormModal';
+import {iflNoUpsell} from 'components/ifl/ifl_upsells'; // IFL: no upsells
 
 import {
     Preferences,
@@ -76,4 +77,4 @@ const ShowStartTrialModal = () => {
 
     return null;
 };
-export default ShowStartTrialModal;
+export default iflNoUpsell(ShowStartTrialModal); // IFL: never opens the trial form for admins

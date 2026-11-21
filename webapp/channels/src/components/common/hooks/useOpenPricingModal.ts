@@ -3,6 +3,8 @@
 
 import {useCallback} from 'react';
 
+import {IFL_UPSELLS} from 'components/ifl/ifl_features'; // IFL: no pricing page
+
 import {useExternalLink} from './use_external_link';
 import useCWSAvailabilityCheck, {CSWAvailabilityCheckTypes} from './useCWSAvailabilityCheck';
 
@@ -18,6 +20,9 @@ export default function useOpenPricingModal(): UseOpenPricingModalReturn {
     const isAirGapped = cwsAvailability === CSWAvailabilityCheckTypes.Unavailable;
 
     const openPricingModal = useCallback(() => {
+        if (!IFL_UPSELLS) { // IFL: never opens mattermost.com/pricing
+            return;
+        }
         window.open(externalLink, '_blank', 'noopener,noreferrer');
     }, [externalLink]);
 

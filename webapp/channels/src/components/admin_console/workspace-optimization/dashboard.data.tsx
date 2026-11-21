@@ -19,6 +19,7 @@ import type {GlobalState} from '@mattermost/types/store';
 import {getLicense, getServerVersion} from 'mattermost-redux/selectors/entities/general';
 
 import useOpenSalesLink from 'components/common/hooks/useOpenSalesLink';
+import {IFL_UPSELLS} from 'components/ifl/ifl_features'; // IFL: no upsells
 
 import {ConsolePages} from 'utils/constants';
 
@@ -237,10 +238,10 @@ const useMetricsData = (
 
     const [, contactSalesLink] = useOpenSalesLink();
 
-    const trialOrEnterpriseCtaConfig = useMemo(() => ({
+    const trialOrEnterpriseCtaConfig = useMemo(() => (IFL_UPSELLS ? {
         configUrl: canStartTrial ? ConsolePages.LICENSE : contactSalesLink,
         configText: canStartTrial ? formatMessage({id: 'admin.reporting.workspace_optimization.cta.startTrial', defaultMessage: 'Start trial'}) : formatMessage({id: 'admin.reporting.workspace_optimization.cta.upgradeLicense', defaultMessage: 'Contact sales'}),
-    }), [canStartTrial, contactSalesLink, formatMessage]);
+    } : {configUrl: '', configText: ''}), [canStartTrial, contactSalesLink, formatMessage]); // IFL: no "Start trial" or "Contact sales" buttons
 
     const options: Options = useMemo(() => ({
         isLicensed,

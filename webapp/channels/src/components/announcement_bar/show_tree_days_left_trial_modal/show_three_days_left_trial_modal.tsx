@@ -17,6 +17,7 @@ import {openModal, closeModal} from 'actions/views/modals';
 import useGetHighestThresholdCloudLimit from 'components/common/hooks/useGetHighestThresholdCloudLimit';
 import useGetLimits from 'components/common/hooks/useGetLimits';
 import useGetUsage from 'components/common/hooks/useGetUsage';
+import {iflNoUpsell} from 'components/ifl/ifl_upsells'; // IFL: no upsells
 import ThreeDaysLeftTrialModal from 'components/three_days_left_trial_modal/three_days_left_trial_modal';
 
 import {
@@ -80,4 +81,4 @@ const ShowThreeDaysLeftTrialModal = () => {
 
     return null;
 };
-export default ShowThreeDaysLeftTrialModal;
+export default iflNoUpsell(ShowThreeDaysLeftTrialModal); // IFL: no trial-ending modal

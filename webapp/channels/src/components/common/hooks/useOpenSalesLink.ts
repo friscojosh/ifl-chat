@@ -8,6 +8,7 @@ import {getCloudCustomer, isCurrentLicenseCloud} from 'mattermost-redux/selector
 import {getCurrentUser} from 'mattermost-redux/selectors/entities/users';
 
 import {useExternalLink} from 'components/common/hooks/use_external_link';
+import {IFL_UPSELLS} from 'components/ifl/ifl_features'; // IFL: no contact sales
 
 import {LicenseLinks} from 'utils/constants';
 import {buildMMURL, goToMattermostContactSalesForm} from 'utils/contact_support_sales';
@@ -41,6 +42,9 @@ export default function useOpenSalesLink(): [() => void, string] {
     const contactSalesLinkWithForm = buildMMURL(LicenseLinks.CONTACT_SALES, firstName, lastName, companyName, customerEmail, queryParams.utm_source, queryParams.utm_medium);
 
     const goToSalesLinkFunc = useCallback(() => {
+        if (!IFL_UPSELLS) { // IFL: never opens Mattermost's contact-sales form
+            return;
+        }
         goToMattermostContactSalesForm(firstName, lastName, companyName, customerEmail, queryParams.utm_source, queryParams.utm_medium);
     }, [firstName, lastName, companyName, customerEmail, queryParams.utm_source, queryParams.utm_medium]);
 

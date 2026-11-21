@@ -20,6 +20,8 @@ import {startUsersBatchExport} from 'actions/views/admin';
 import {openModal} from 'actions/views/modals';
 import {getAdminConsoleUserManagementTableProperties} from 'selectors/views/admin';
 
+import {IFL_UPSELLS} from 'components/ifl/ifl_features'; // IFL: no upsells
+
 import {ModalIdentifiers} from 'utils/constants';
 import {isMinimumProfessionalLicense} from 'utils/license_utils';
 
@@ -112,6 +114,9 @@ export function SystemUsersExport(props: Props) {
         </Button>
     );
 
+    if (!isLicensed && !IFL_UPSELLS) { // IFL: no "Professional feature" Export button
+        return null;
+    }
     if (!isLicensed) {
         return (
             <>

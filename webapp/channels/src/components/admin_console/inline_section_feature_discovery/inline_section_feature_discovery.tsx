@@ -7,6 +7,7 @@ import {FormattedMessage} from 'react-intl';
 
 import {Button} from '@mattermost/shared/components/button';
 
+import {iflNoUpsell} from 'components/ifl/ifl_upsells'; // IFL: no upsells
 import {LicenseSkuBadge} from 'components/widgets/badges';
 
 import {LicenseSkus} from 'utils/constants';
@@ -86,5 +87,5 @@ const InlineSectionFeatureDiscovery: React.FC<Props> = ({
     );
 };
 
-export default InlineSectionFeatureDiscovery;
+export default iflNoUpsell(InlineSectionFeatureDiscovery); // IFL: no inline "try Enterprise" sections
 

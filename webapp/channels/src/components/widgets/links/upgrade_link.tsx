@@ -6,6 +6,7 @@ import {FormattedMessage} from 'react-intl';
 
 import './link.scss';
 import useOpenSalesLink from 'components/common/hooks/useOpenSalesLink';
+import {iflNoUpsell} from 'components/ifl/ifl_upsells'; // IFL: no upsells
 
 export interface UpgradeLinkProps {
     buttonText?: string;
@@ -39,4 +40,4 @@ const UpgradeLink = (props: UpgradeLinkProps) => {
     );
 };
 
-export default UpgradeLink;
+export default iflNoUpsell(UpgradeLink); // IFL: no "Upgrade" link

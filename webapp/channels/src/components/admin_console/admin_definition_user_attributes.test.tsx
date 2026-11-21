@@ -8,6 +8,8 @@ import {LicenseSkus} from 'utils/constants';
 import AdminDefinition from './admin_definition';
 import type {Check, ConsoleAccess} from './types';
 
+jest.mock('components/ifl/ifl_features', () => ({...jest.requireActual('components/ifl/ifl_features'), IFL_UPSELLS: true})); // IFL: upstream's upsell behaviour (off in IFL Chat; see ifl_upsells.test.tsx)
+
 const config = {} as Partial<AdminConfig>;
 
 const enterpriseLicense = {

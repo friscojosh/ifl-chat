@@ -5,6 +5,8 @@ import {combineReducers} from 'redux';
 
 import {GeneralTypes, UserTypes} from 'mattermost-redux/action_types';
 
+import {isIFLUpsellModal} from 'components/ifl/ifl_upsells'; // IFL: no upsell modals
+
 import {ActionTypes} from 'utils/constants';
 
 import type {MMAction} from 'types/store';
@@ -13,6 +15,9 @@ import type {ViewsState} from 'types/store/views';
 export function modalState(state: ViewsState['modals']['modalState'] = {}, action: MMAction) {
     switch (action.type) {
     case ActionTypes.MODAL_OPEN:
+        if (isIFLUpsellModal(action.modalId)) { // IFL: trial, pricing and other upsell modals never open
+            return state;
+        }
         return {
             ...state,
             [action.modalId]: {

@@ -15,6 +15,8 @@ import {AboutLinks, LicenseSkus} from 'utils/constants';
 
 import GroupsSVG from './features/images/groups_svg';
 
+jest.mock('components/ifl/ifl_features', () => ({...jest.requireActual('components/ifl/ifl_features'), IFL_UPSELLS: true})); // IFL: upstream's upsell behaviour (off in IFL Chat; see ifl_upsells.test.tsx)
+
 describe('components/feature_discovery', () => {
     describe('FeatureDiscovery', () => {
         test('should match the default state of the component when is not cloud environment', async () => {

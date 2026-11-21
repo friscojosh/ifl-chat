@@ -9,6 +9,7 @@ import type {MessageDescriptor} from 'react-intl';
 import {WithTooltip} from '@mattermost/shared/components/tooltip';
 
 import FeatureRestrictedModal from 'components/feature_restricted_modal/feature_restricted_modal';
+import {iflNoUpsell} from 'components/ifl/ifl_upsells'; // IFL: no upsells
 import ToggleModalButton from 'components/toggle_modal_button';
 
 import {FREEMIUM_TO_ENTERPRISE_TRIAL_LENGTH_DAYS} from 'utils/cloud_utils';
@@ -138,4 +139,4 @@ const RestrictedIndicator = ({
     );
 };
 
-export default RestrictedIndicator;
+export default iflNoUpsell(RestrictedIndicator); // IFL: no "paid feature" badge or trial prompt

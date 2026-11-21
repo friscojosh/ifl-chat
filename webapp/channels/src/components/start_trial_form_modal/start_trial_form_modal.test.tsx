@@ -18,6 +18,8 @@ import type {GlobalState} from 'types/store';
 
 import StartTrialFormModal from '.';
 
+jest.mock('components/ifl/ifl_features', () => ({...jest.requireActual('components/ifl/ifl_features'), IFL_UPSELLS: true})); // IFL: upstream's upsell behaviour (off in IFL Chat; see ifl_upsells.test.tsx)
+
 describe('components/start_trial_form_modal/start_trial_form_modal', () => {
     const state: DeepPartial<GlobalState> = {
         entities: {

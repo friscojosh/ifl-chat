@@ -23,6 +23,7 @@ import ChannelMembersModal from 'components/channel_members_modal';
 import ChannelNotificationsModal from 'components/channel_notifications_modal';
 import DatePicker from 'components/date_picker/date_picker';
 import EditChannelHeaderModal from 'components/edit_channel_header_modal';
+import {IFL_UPSELLS} from 'components/ifl/ifl_features'; // IFL: no pricing page
 import * as Menu from 'components/menu';
 import {useNotifyAdmin} from 'components/notify_admin_cta/notify_admin_cta';
 import PostMessagePreview from 'components/post_view/post_message_preview';
@@ -53,6 +54,9 @@ import Textbox from './textbox';
 // Note: We can't directly use the hook here, but we can create a function that opens the external pricing page
 // For plugins, we'll always try to open the external page and let the browser handle if it's blocked
 const openPricingModalForPlugins = () => {
+    if (!IFL_UPSELLS) { // IFL: plugins cannot open mattermost.com/pricing either
+        return;
+    }
     (window as any).open('https://mattermost.com/pricing', '_blank', 'noopener,noreferrer');
 };
 

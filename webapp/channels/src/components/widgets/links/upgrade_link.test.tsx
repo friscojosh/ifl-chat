@@ -7,6 +7,8 @@ import {renderWithContext, screen, userEvent} from 'tests/react_testing_utils';
 
 import UpgradeLink from './upgrade_link';
 
+jest.mock('components/ifl/ifl_features', () => ({...jest.requireActual('components/ifl/ifl_features'), IFL_UPSELLS: true})); // IFL: upstream's upsell behaviour (off in IFL Chat; see ifl_upsells.test.tsx)
+
 describe('components/widgets/links/UpgradeLink', () => {
     test('should match the snapshot on show', () => {
         const {container} = renderWithContext(<UpgradeLink/>);
