@@ -14477,6 +14477,16 @@
     "description": "Error returned when the iflgm.com suspension callback fails, refuses, or is not configured."
   },
   {
+    "id": "ifl.team_badges.no_logo",
+    "translation": "There is no logo for this team.",
+    "description": "Error returned when a client asks for the logo of a team that is not in the league's team badges."
+  },
+  {
+    "id": "ifl.team_badges.unavailable",
+    "translation": "Team badges could not be loaded from iflgm.com.",
+    "description": "Error returned when the server cannot reach iflgm.com to refresh team badges or fetch a team logo."
+  },
+  {
     "id": "import_process.worker.do_job.file_exists",
     "translation": "Unable to process import: file does not exist.",
     "description": "Error status for a bulk import job when the uploaded import file does not exist; shown in the System Console jobs table and mmctl output."

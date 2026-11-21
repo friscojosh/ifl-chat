@@ -17,3 +17,6 @@ export const IFL_MATTERMOST_LINKS = false as boolean;
 // No Enterprise trial, upgrade, licence-purchase or "contact sales" prompts:
 // IFL Chat is a self-hosted Team Edition fork with nothing to buy.
 export const IFL_UPSELLS = false as boolean;
+
+// The team chip after GMs' names (IFL Chat apps plan): logos from iflgm.com.
+export const IFL_TEAM_CHIPS = true as boolean;

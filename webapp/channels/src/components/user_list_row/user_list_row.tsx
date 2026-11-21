@@ -15,6 +15,7 @@ import {Client4} from 'mattermost-redux/client';
 
 import CustomStatusEmoji from 'components/custom_status/custom_status_emoji';
 import Nbsp from 'components/html_entities/nbsp';
+import IflTeamChip from 'components/ifl/team_badges/ifl_team_chip'; // IFL: team chip (IFL Chat apps plan)
 import ProfilePicture from 'components/profile_picture';
 import UserProfile from 'components/user_profile';
 
@@ -132,6 +133,10 @@ const UserListRow = ({user, status, extraInfo = [], actions = [], actionProps, a
                             userId={user.id}
                             displayUsername={true}
                         />
+                        <IflTeamChip
+                            userId={user.id}
+                            size={20}
+                        />{/* IFL: team chip (IFL Chat apps plan) */}
                         {
                             (user.first_name || user.last_name || user.nickname) && (
                                 <>
