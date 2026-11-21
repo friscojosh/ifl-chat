@@ -11,6 +11,8 @@ import {LimitTypes} from 'utils/limits';
 
 import useWords from './useWords';
 
+jest.mock('components/ifl/ifl_features', () => ({...jest.requireActual('components/ifl/ifl_features'), IFL_UPSELLS: true})); // IFL: upstream's upsell behaviour (off in IFL Chat; see ifl_upsells.test.tsx)
+
 interface Props {
     highestLimit: LimitSummary | false;
     isAdminUser: boolean;

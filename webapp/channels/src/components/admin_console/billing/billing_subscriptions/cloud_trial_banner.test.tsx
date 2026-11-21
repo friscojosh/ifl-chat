@@ -10,6 +10,8 @@ import {CloudBanners, Preferences} from 'utils/constants';
 
 import CloudTrialBanner from './cloud_trial_banner';
 
+jest.mock('components/ifl/ifl_features', () => ({...jest.requireActual('components/ifl/ifl_features'), IFL_UPSELLS: true})); // IFL: upstream's upsell behaviour (off in IFL Chat; see ifl_upsells.test.tsx)
+
 jest.mock('components/common/hooks/useOpenSalesLink', () => ({
     __esModule: true,
     default: () => [jest.fn()],

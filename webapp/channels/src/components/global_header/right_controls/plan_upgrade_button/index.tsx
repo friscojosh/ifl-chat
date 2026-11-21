@@ -14,6 +14,7 @@ import {getConfig, getLicense} from 'mattermost-redux/selectors/entities/general
 import {isCurrentUserSystemAdmin} from 'mattermost-redux/selectors/entities/users';
 
 import useOpenPricingModal from 'components/common/hooks/useOpenPricingModal';
+import {iflNoUpsell} from 'components/ifl/ifl_upsells'; // IFL: no upsells
 
 import {CloudProducts} from 'utils/constants';
 
@@ -85,4 +86,4 @@ const PlanUpgradeButton = (): JSX.Element | null => {
         </WithTooltip>);
 };
 
-export default PlanUpgradeButton;
+export default iflNoUpsell(PlanUpgradeButton); // IFL: no "View plans" button

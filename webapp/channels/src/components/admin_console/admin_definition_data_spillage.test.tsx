@@ -11,6 +11,8 @@ import AdminDefinition from './admin_definition';
 import DataSpillageFeatureDiscovery from './feature_discovery/features/data_spillage';
 import type {AdminDefinitionSetting, AdminDefinitionSubSection, Check, ConsoleAccess} from './types';
 
+jest.mock('components/ifl/ifl_features', () => ({...jest.requireActual('components/ifl/ifl_features'), IFL_UPSELLS: true})); // IFL: upstream's upsell behaviour (off in IFL Chat; see ifl_upsells.test.tsx)
+
 const contentFlaggingConfigEnabled = {
     FeatureFlags: {
         ContentFlagging: true,

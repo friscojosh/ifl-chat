@@ -7,6 +7,8 @@ import StartTrialBtn from 'components/learn_more_trial_modal/start_trial_btn';
 
 import {renderWithContext, screen, userEvent} from 'tests/react_testing_utils';
 
+jest.mock('components/ifl/ifl_features', () => ({...jest.requireActual('components/ifl/ifl_features'), IFL_UPSELLS: true})); // IFL: upstream's upsell behaviour (off in IFL Chat; see ifl_upsells.test.tsx)
+
 jest.mock('mattermost-redux/actions/general', () => ({
     ...jest.requireActual('mattermost-redux/actions/general'),
     getLicenseConfig: () => ({type: 'adsf'}),

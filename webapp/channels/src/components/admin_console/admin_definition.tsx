@@ -39,6 +39,7 @@ import {searchableStrings as systemAnalyticsSearchableStrings} from 'components/
 import TeamAnalytics from 'components/analytics/team_analytics';
 import {searchableStrings as teamAnalyticsSearchableStrings} from 'components/analytics/team_analytics/team_analytics';
 import ExternalLink from 'components/external_link';
+import {iflAdminDefinition} from 'components/ifl/ifl_upsells'; // IFL: no upsells in the System Console
 
 import {AboutLinks, CacheTypes, Constants, DeveloperLinks, DocLinks, LicenseSkus} from 'utils/constants';
 import {ID_PATH_PATTERN} from 'utils/path';
@@ -6869,4 +6870,4 @@ const AdminDefinition: AdminDefinitionType = {
     },
 };
 
-export default AdminDefinition;
+export default iflAdminDefinition(AdminDefinition); // IFL: no feature discovery or Edition and License pages, no paid-feature badges

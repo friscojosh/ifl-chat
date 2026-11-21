@@ -16,6 +16,7 @@ import useGetHighestThresholdCloudLimit from 'components/common/hooks/useGetHigh
 import useGetLimits from 'components/common/hooks/useGetLimits';
 import useGetUsage from 'components/common/hooks/useGetUsage';
 import useOpenPricingModal from 'components/common/hooks/useOpenPricingModal';
+import {iflNoUpsell} from 'components/ifl/ifl_upsells'; // IFL: no upsells
 import TrialBenefitsModal from 'components/trial_benefits_modal/trial_benefits_modal';
 
 import {ModalIdentifiers, CloudProducts} from 'utils/constants';
@@ -129,4 +130,4 @@ const MenuCloudTrial = ({id}: Props): JSX.Element | null => {
         </li>
     );
 };
-export default MenuCloudTrial;
+export default iflNoUpsell(MenuCloudTrial); // IFL: no trial menu item

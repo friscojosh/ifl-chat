@@ -14,7 +14,7 @@ import {getPrevTrialLicense} from 'mattermost-redux/actions/admin';
 import {getLicense} from 'mattermost-redux/selectors/entities/general';
 
 import ExternalLink from 'components/external_link';
-import {IFL_APP_DOWNLOAD_PROMPTS} from 'components/ifl/ifl_features'; // IFL: no app download prompt
+import {IFL_APP_DOWNLOAD_PROMPTS, IFL_UPSELLS} from 'components/ifl/ifl_features'; // IFL: no app download prompt or trial CTA
 import StartTrialBtn from 'components/learn_more_trial_modal/start_trial_btn';
 
 import completedImg from 'images/completed.svg';
@@ -151,7 +151,7 @@ const Completed = (props: Props): JSX.Element => {
         (props.isCurrentUserSystemAdmin || props.isFirstAdmin);
 
     // if Cloud, don't show
-    const showStartTrialBtn = selfHostedTrialCondition && !isCloud;
+    const showStartTrialBtn = IFL_UPSELLS && selfHostedTrialCondition && !isCloud; // IFL: no "Start your free Enterprise trial" CTA
 
     return (
         <>

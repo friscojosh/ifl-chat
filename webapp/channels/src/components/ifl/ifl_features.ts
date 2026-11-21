@@ -13,3 +13,7 @@ export const IFL_APP_DOWNLOAD_PROMPTS = false as boolean;
 
 // No links to Mattermost's documentation, academy or community in menus.
 export const IFL_MATTERMOST_LINKS = false as boolean;
+
+// No Enterprise trial, upgrade, licence-purchase or "contact sales" prompts:
+// IFL Chat is a self-hosted Team Edition fork with nothing to buy.
+export const IFL_UPSELLS = false as boolean;

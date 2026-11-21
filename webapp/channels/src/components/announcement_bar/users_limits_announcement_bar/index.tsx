@@ -15,6 +15,7 @@ import {get as getPreference} from 'mattermost-redux/selectors/entities/preferen
 import {getCurrentUser} from 'mattermost-redux/selectors/entities/users';
 
 import AnnouncementBar from 'components/announcement_bar/default_announcement_bar';
+import {iflNoUpsell} from 'components/ifl/ifl_upsells'; // IFL: no upsells
 
 import {AnnouncementBarTypes, Preferences} from 'utils/constants';
 
@@ -162,4 +163,4 @@ export function shouldShowWarningBanner({userIsAdmin, isLicensed, maxUsersLimit 
     return !isLicensed && activeUserCount >= maxUsersLimit && activeUserCount < maxUsersHardLimit;
 }
 
-export default UsersLimitsAnnouncementBar;
+export default iflNoUpsell(UsersLimitsAnnouncementBar); // IFL: no user-limit banner

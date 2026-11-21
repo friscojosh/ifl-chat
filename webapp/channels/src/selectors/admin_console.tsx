@@ -10,6 +10,7 @@ import {getLicense} from 'mattermost-redux/selectors/entities/general';
 import {getMySystemPermissions, haveISystemPermission} from 'mattermost-redux/selectors/entities/roles_helpers';
 
 import AdminDefinition from 'components/admin_console/admin_definition';
+import {IFL_UPSELLS} from 'components/ifl/ifl_features'; // IFL: no upsells
 
 import type {GlobalState} from 'types/store';
 
@@ -88,6 +89,6 @@ export const getShowLockedManageUserSettings = createSelector(
 
         const isEnterprise = isEnterpriseLicense(license);
 
-        return hasWriteUserManagementPermission && !isEnterprise;
+        return IFL_UPSELLS && hasWriteUserManagementPermission && !isEnterprise; // IFL: no locked "Manage User Settings" (upgrade to Enterprise)
     },
 );

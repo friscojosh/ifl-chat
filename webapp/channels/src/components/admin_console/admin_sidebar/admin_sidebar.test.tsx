@@ -15,6 +15,8 @@ import {samplePlugin1} from 'tests/helpers/admin_console_plugin_index_sample_plu
 import {renderWithContext, screen, userEvent} from 'tests/react_testing_utils';
 import {generateIndex} from 'utils/admin_console_index';
 
+jest.mock('components/ifl/ifl_features', () => ({...jest.requireActual('components/ifl/ifl_features'), IFL_UPSELLS: true})); // IFL: upstream's upsell behaviour (off in IFL Chat; see ifl_upsells.test.tsx)
+
 jest.mock('utils/utils', () => {
     const original = jest.requireActual('utils/utils');
     return {

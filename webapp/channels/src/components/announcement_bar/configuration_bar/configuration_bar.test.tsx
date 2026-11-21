@@ -7,6 +7,8 @@ import ConfigurationBar from 'components/announcement_bar/configuration_bar/conf
 
 import {renderWithContext} from 'tests/react_testing_utils';
 
+jest.mock('components/ifl/ifl_features', () => ({...jest.requireActual('components/ifl/ifl_features'), IFL_UPSELLS: true})); // IFL: upstream's upsell behaviour (off in IFL Chat; see ifl_upsells.test.tsx)
+
 describe('components/ConfigurationBar', () => {
     const millisPerDay = 24 * 60 * 60 * 1000;
 

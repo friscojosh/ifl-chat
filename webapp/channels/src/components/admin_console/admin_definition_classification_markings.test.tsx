@@ -12,6 +12,8 @@ import AdminDefinition from './admin_definition';
 import ClassificationMarkingsFeatureDiscovery from './feature_discovery/features/classification_markings';
 import type {AdminDefinitionSetting, AdminDefinitionSubSection, Check, ConsoleAccess} from './types';
 
+jest.mock('components/ifl/ifl_features', () => ({...jest.requireActual('components/ifl/ifl_features'), IFL_UPSELLS: true})); // IFL: upstream's upsell behaviour (off in IFL Chat; see ifl_upsells.test.tsx)
+
 const classificationConfigEnabled = {
     FeatureFlags: {
         ClassificationMarkings: true,

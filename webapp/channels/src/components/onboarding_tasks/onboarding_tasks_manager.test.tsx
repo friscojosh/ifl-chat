@@ -9,6 +9,8 @@ import {renderWithContext, screen} from 'tests/react_testing_utils';
 
 import {useTasksList} from './onboarding_tasks_manager';
 
+jest.mock('components/ifl/ifl_features', () => ({...jest.requireActual('components/ifl/ifl_features'), IFL_UPSELLS: true})); // IFL: upstream's upsell behaviour (off in IFL Chat; see ifl_upsells.test.tsx)
+
 const isDesktopAppMock = jest.mocked(UserAgent.isDesktopApp);
 
 jest.mock('@mattermost/shared/utils/user_agent', () => ({

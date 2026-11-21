@@ -14,6 +14,8 @@ import {TestHelper} from 'utils/test_helper';
 
 import useShowAdminLimitReached from './useShowAdminLimitReached';
 
+jest.mock('components/ifl/ifl_features', () => ({...jest.requireActual('components/ifl/ifl_features'), IFL_UPSELLS: true})); // IFL: upstream's upsell behaviour (off in IFL Chat; see ifl_upsells.test.tsx)
+
 function TestComponent() {
     useShowAdminLimitReached();
     return null;

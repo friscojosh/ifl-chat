@@ -8,6 +8,7 @@ import {FormattedMessage} from 'react-intl';
 import {Button, type ButtonEmphasis} from '@mattermost/shared/components/button';
 
 import useOpenSalesLink from 'components/common/hooks/useOpenSalesLink';
+import {iflNoUpsell} from 'components/ifl/ifl_upsells'; // IFL: no upsells
 
 export interface Props {
     buttonTextElement?: JSX.Element;
@@ -39,4 +40,4 @@ const ContactUsButton: React.FC<Props> = (props: Props) => {
     );
 };
 
-export default ContactUsButton;
+export default iflNoUpsell(ContactUsButton); // IFL: no "Contact sales" button

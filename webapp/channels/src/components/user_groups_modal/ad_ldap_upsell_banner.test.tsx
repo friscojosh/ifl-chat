@@ -8,6 +8,8 @@ import {CloudProducts, LicenseSkus} from 'utils/constants';
 
 import ADLDAPUpsellBanner from './ad_ldap_upsell_banner';
 
+jest.mock('components/ifl/ifl_features', () => ({...jest.requireActual('components/ifl/ifl_features'), IFL_UPSELLS: true})); // IFL: upstream's upsell behaviour (off in IFL Chat; see ifl_upsells.test.tsx)
+
 describe('component/user_groups_modal/ad_ldap_upsell_banner', () => {
     const initState = {
         entities: {

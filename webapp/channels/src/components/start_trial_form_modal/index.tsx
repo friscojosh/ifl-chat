@@ -22,6 +22,7 @@ import useCWSAvailabilityCheck, {CSWAvailabilityCheckTypes} from 'components/com
 import useGetTotalUsersNoBots from 'components/common/hooks/useGetTotalUsersNoBots';
 import DropdownInput from 'components/dropdown_input';
 import ExternalLink from 'components/external_link';
+import {iflNoUpsell} from 'components/ifl/ifl_upsells'; // IFL: no upsells
 import CountrySelector from 'components/payment_form/country_selector';
 import Input, {SIZE} from 'components/widgets/inputs/input/input';
 import type {CustomMessageInputType} from 'components/widgets/inputs/input/input';
@@ -353,4 +354,4 @@ function StartTrialFormModal(props: Props): JSX.Element | null {
     );
 }
 
-export default StartTrialFormModal;
+export default iflNoUpsell(StartTrialFormModal); // IFL: the "Start Trial" form never renders (also when a plugin opens it)

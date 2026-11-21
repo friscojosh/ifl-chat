@@ -9,6 +9,8 @@ import {CloudProducts} from 'utils/constants';
 
 import InviteAs, {InviteType} from './invite_as';
 
+jest.mock('components/ifl/ifl_features', () => ({...jest.requireActual('components/ifl/ifl_features'), IFL_UPSELLS: true})); // IFL: upstream's upsell behaviour (off in IFL Chat; see ifl_upsells.test.tsx)
+
 jest.mock('mattermost-redux/selectors/entities/users', () => ({
     ...jest.requireActual('mattermost-redux/selectors/entities/users') as typeof import('mattermost-redux/selectors/entities/users'),
     isCurrentUserSystemAdmin: () => true,

@@ -9,6 +9,7 @@ import type {NotifyAdminRequest} from '@mattermost/types/cloud';
 
 import {NotifyStatus, useGetNotifyAdmin} from 'components/common/hooks/useGetNotifyAdmin';
 import type {NotifyStatusValues} from 'components/common/hooks/useGetNotifyAdmin';
+import {iflNoUpsell} from 'components/ifl/ifl_upsells'; // IFL: no upsells
 
 const Span = styled.span`
     font-family: 'Open Sans';
@@ -104,4 +105,4 @@ function NotifyAdminCTA(props: Props) {
     );
 }
 
-export default NotifyAdminCTA;
+export default iflNoUpsell(NotifyAdminCTA); // IFL: no "Notify admin" (to upgrade) button

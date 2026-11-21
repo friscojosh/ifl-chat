@@ -7,6 +7,7 @@ import {useIntl} from 'react-intl';
 import {buttonClassNames} from '@mattermost/shared/components/button';
 
 import useOpenStartTrialFormModal from 'components/common/hooks/useOpenStartTrialFormModal';
+import {iflNoUpsell} from 'components/ifl/ifl_upsells'; // IFL: no upsells
 
 import './start_trial_btn.scss';
 
@@ -66,4 +67,4 @@ const StartTrialBtn = ({
     );
 };
 
-export default StartTrialBtn;
+export default iflNoUpsell(StartTrialBtn); // IFL: no "Start trial" button

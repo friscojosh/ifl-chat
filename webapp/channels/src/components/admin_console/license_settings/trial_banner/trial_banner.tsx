@@ -14,6 +14,7 @@ import {getCurrentUserId} from 'mattermost-redux/selectors/entities/users';
 import AlertBanner from 'components/alert_banner';
 import withOpenStartTrialFormModal from 'components/common/hocs/cloud/with_open_start_trial_form_modal';
 import ExternalLink from 'components/external_link';
+import {iflNoUpsell} from 'components/ifl/ifl_upsells'; // IFL: no upsells
 import LoadingWrapper from 'components/widgets/loading/loading_wrapper';
 
 import {AboutLinks, LicenseLinks, Preferences, Unique} from 'utils/constants';
@@ -419,4 +420,4 @@ const TrialBanner = ({
     );
 };
 
-export default withOpenStartTrialFormModal(TrialBanner);
+export default iflNoUpsell(withOpenStartTrialFormModal(TrialBanner)); // IFL: no trial banner
