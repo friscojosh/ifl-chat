@@ -8,6 +8,10 @@
       [--db db_counts.csv] --out acceptance_counts.csv
   inventory.py accounts BEFORE_users.json AFTER_users.json
   inventory.py members BEFORE_members.csv AFTER_members.csv   (prints the rows to restore, CSV)
+  inventory.py reimport-check --prior FIRST/import.zip --new NEW/import.zip \
+      [--chat-channels chat_channels.txt] [--allow-duplicates] --out reimport_check.csv
+  inventory.py reimport-verify --before db_counts_before.csv --after db_counts_after.csv \
+      --check reimport_check.csv --out reimport_verify.csv
 
 Reads the export without changing it. Never prints emails or tokens.
 """
@@ -21,8 +25,10 @@ import sys
 import zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # run with python -I
-from common import (MigrationError, load_env_file, member_name,  # noqa: E402
-                    read_csv, slack_file_url, valid_username, write_csv)
+from common import (MigrationError, PriorImport, attachment_names,  # noqa: E402
+                    iter_import_lines, iter_items, load_chat_channels, load_env_file,
+                    member_name, reaction_set, read_csv, slack_file_url, valid_username,
+                    write_csv)
 
 COUNT_FIELDS = ['folder', 'slack_id', 'slack_name', 'archived', 'in_channels_json',
                 'messages', 'replies', 'mmetl_drops', 'mmetl_extra', 'files_import', 'first', 'last', 'files_hidden',
@@ -378,6 +384,85 @@ def reconcile(slack_path, import_path, db_path=None):
     return rows
 
 
+CHECK_FIELDS = ['mm_name', 'new_channel', 'new_posts', 'new_replies', 'new_reactions',
+                'new_attachments', 'matched', 'matched_new_reactions', 'reactions_readded',
+                'attachment_changes', 'possible_duplicates']
+VERIFY_FIELDS = ['mm_name', 'before', 'after', 'added', 'expected', 'diff']
+
+
+def reimport_check(prior_path, new_path, chat_channels=None):
+    """Predict what importing new_path adds on top of the first import
+    (prior_path), using the server's own match rule (common.post_key /
+    reply_key). Returns (per-channel rows, users, bots, hazards).
+
+    A hazard is something the import would change in what chat already holds:
+    a channel line for an existing channel (overwrites its header, purpose and
+    archive state), or a matched post whose attachments differ (the import
+    deletes the files it does not find again)."""
+    prior = PriorImport.load(prior_path)
+    rows = collections.defaultdict(collections.Counter)
+    new_channels, hazards = set(), []
+    users = bots = 0
+    for line in iter_import_lines(new_path):
+        kind = line.get('type')
+        if kind == 'channel':
+            name = line['channel']['name']
+            if name in prior.channels:
+                hazards.append(f'channel line for {name}, which the first import created')
+            elif chat_channels is not None and name in chat_channels:
+                hazards.append(f'channel line for {name}, which already exists in chat')
+            new_channels.add(name)
+        elif kind == 'user':
+            users += 1
+        elif kind == 'bot':
+            bots += 1
+        elif kind == 'post':
+            p = line['post']
+            r = rows[p['channel']]
+            cut = prior.cutoff.get(p['channel'])
+            for key, it, is_reply in iter_items(p):
+                reacts = reaction_set(it)
+                if prior.has(key):
+                    r['matched'] += 1
+                    r['matched_new_reactions'] += len(reacts - prior.reactions(key))
+                    r['reactions_readded'] += len(reacts & prior.reactions(key))
+                    if attachment_names(it) != prior.attachments(key):
+                        r['attachment_changes'] += 1
+                    continue
+                if cut is not None and (it.get('create_at') or 0) <= cut:
+                    r['possible_duplicates'] += 1
+                else:
+                    r['new_replies' if is_reply else 'new_posts'] += 1
+                r['new_reactions'] += len(reacts)
+                r['new_attachments'] += len(it.get('attachments') or [])
+    out = []
+    for name in sorted(set(rows) | new_channels):
+        row = {'mm_name': name, 'new_channel': 'true' if name in new_channels else 'false'}
+        row.update({f: rows[name][f] for f in CHECK_FIELDS[2:]})
+        out.append(row)
+    changes = sum(r['attachment_changes'] for r in out)
+    if changes:
+        hazards.append(f'{changes} post(s) already in chat would get different attachments '
+                       '(the import deletes files it does not find again)')
+    return out, users, bots, hazards
+
+
+def reimport_verify(before_path, after_path, check_path):
+    """After the second import: per-channel post count growth (counts.sql: posts
+    and replies) against reimport-check's prediction."""
+    before = {r['mm_name']: int(r['posts'] or 0) for r in read_csv(before_path)}
+    after = {r['mm_name']: int(r['posts'] or 0) for r in read_csv(after_path)}
+    check = {r['mm_name']: r for r in read_csv(check_path)}
+    rows = []
+    for name in sorted(set(before) | set(after) | set(check)):
+        c = check.get(name, {})
+        expected = sum(int(c.get(f) or 0) for f in ('new_posts', 'new_replies', 'possible_duplicates'))
+        added = after.get(name, 0) - before.get(name, 0)
+        rows.append({'mm_name': name, 'before': before.get(name, 0), 'after': after.get(name, 0),
+                     'added': added, 'expected': expected, 'diff': added - expected})
+    return rows
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest='cmd', required=True)
@@ -390,6 +475,14 @@ def main(argv=None):
     p = sub.add_parser('members'); p.add_argument('before'); p.add_argument('after')
     p = sub.add_parser('reconcile'); p.add_argument('--slack', required=True)
     p.add_argument('--import', dest='imp', required=True); p.add_argument('--db')
+    p.add_argument('--out', required=True)
+    p = sub.add_parser('reimport-check'); p.add_argument('--prior', required=True)
+    p.add_argument('--new', required=True); p.add_argument('--chat-channels')
+    p.add_argument('--allow-duplicates', action='store_true',
+                   help='a --full run: report possible duplicates without failing')
+    p.add_argument('--out', required=True)
+    p = sub.add_parser('reimport-verify'); p.add_argument('--before', required=True)
+    p.add_argument('--after', required=True); p.add_argument('--check', required=True)
     p.add_argument('--out', required=True)
     a = ap.parse_args(argv)
     try:
@@ -416,6 +509,38 @@ def main(argv=None):
                       f'files diff {r["files_diff"] or "-"}, '
                       f'database {r["database"] if r["database"] != "" else "-"}')
             print(f'{len(rows)} channels; {len(off)} differ; details in {a.out}')
+            return 1 if off else 0
+        if a.cmd == 'reimport-check':
+            chans = load_chat_channels(a.chat_channels) if a.chat_channels else None
+            rows, users, bots, hazards = reimport_check(a.prior, a.new, chans)
+            write_csv(a.out, rows, CHECK_FIELDS)
+            tot = collections.Counter()
+            for r in rows:
+                tot.update({f: r[f] for f in CHECK_FIELDS[2:]})
+            print(f'new channels: {sum(1 for r in rows if r["new_channel"] == "true")}')
+            print(f'user lines (new people): {users}; bot lines (new bots): {bots}')
+            for f in CHECK_FIELDS[2:]:
+                print(f'{f.replace("_", " ")}: {tot[f]}')
+            for h in hazards:
+                print(f'HAZARD: {h}')
+            if tot['reactions_readded']:
+                print(f'note: {tot["reactions_readded"]} reaction(s) already in chat are sent again; '
+                      'any a member removed in chat comes back')
+            if tot['possible_duplicates']:
+                print(f'{"WARNING" if a.allow_duplicates else "HAZARD"}: {tot["possible_duplicates"]} '
+                      'post(s) or replies at or before the first import\'s last message in their '
+                      'channel match nothing in it: edited in Slack, so each becomes a duplicate')
+            print(f'details in {a.out}')
+            bad = hazards or (tot['possible_duplicates'] and not a.allow_duplicates)
+            return 1 if bad else 0
+        if a.cmd == 'reimport-verify':
+            rows = reimport_verify(a.before, a.after, a.check)
+            write_csv(a.out, rows, VERIFY_FIELDS)
+            off = [r for r in rows if r['diff']]
+            for r in off:
+                print(f'{r["mm_name"]}: added {r["added"]}, expected {r["expected"]}')
+            print(f'{len(rows)} channels; added {sum(r["added"] for r in rows)}, expected '
+                  f'{sum(r["expected"] for r in rows)}; {len(off)} differ; details in {a.out}')
             return 1 if off else 0
         if a.cmd == 'compare':
             problems = compare(a.old, a.new)

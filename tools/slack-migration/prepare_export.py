@@ -25,6 +25,14 @@ message text (`<@U123>` becomes `@<final username>`, `<#C123>` becomes
   * Archive state: with --archive-state (the channel_counts.csv of an export
     taken before the cutover freeze), each listed channel keeps the archived
     flag it had then, so channels archived only to freeze Slack import open.
+  * Re-import (--reimport-from FIRST_RUN_DIR --prior-emoji-map FIRST_MAP): a
+    second export on top of the first import. Channels the first run imported
+    keep the chat names its channel_map.csv gave them (never `-slack`; each
+    must still be in chat); people and bots keep the usernames its prepared
+    users.json gave them and are accepted as existing chat accounts; the
+    first run's emoji renames win over the new map. So unchanged messages
+    come out of mmetl with exactly the text chat already holds. New channels,
+    people and bots get the usual handling.
 """
 import argparse
 import collections
@@ -39,8 +47,8 @@ import zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # run with python -I
 from common import (DISPLAY_NAME_MAX, SLACK_GENERAL, TOWN_SQUARE,  # noqa: E402
-                    MigrationError, load_chat_channels, load_chat_users,
-                    member_name, open_private, read_csv, resolve_identities, slug,
+                    MigrationError, load_chat_channels, load_chat_users, load_prior_users,
+                    member_name, open_private, prior_paths, read_csv, resolve_identities, slug,
                     truncate, valid_channel_name, valid_username, write_csv)
 
 SLACKBOT_USER = 'USLACKBOT'
@@ -66,10 +74,15 @@ def note_missing(name):
 # ---------------------------------------------------------------- channels
 
 def plan_channels(channels, folders, chat_channels, folder_messages, bot_users=(),
-                  archive_state=None):
-    """Return (channel records to write, channel_map rows, folder -> mm name)."""
+                  archive_state=None, prior_channels=None):
+    """Return (channel records to write, channel_map rows, folder -> mm name).
+
+    prior_channels (re-import): the first run's channel_map rows by slack_id;
+    those channels keep their chat name and display name."""
     by_name = {c['name']: c for c in channels}
     records, rows, used, folder_to_mm = [], [], set(), {}
+    prior_channels = prior_channels or {}
+    used.update(r['mm_name'] for r in prior_channels.values())
 
     def unique(name):
         # Slack channels never take a name a chat channel (or an earlier
@@ -115,12 +128,19 @@ def plan_channels(channels, folders, chat_channels, folder_messages, bot_users=(
             'purpose': {'value': f'Slack export folder "{folder}" had no channel record.'},
             'topic': {'value': ''}, '_orphan': True,
         })
+    missing = []
     for rec in records:
         folder = rec['name']
-        mm, reason = mm_name_for(rec['name'], rec['id'])
-        if rec.get('_orphan'):
+        prior = prior_channels.get(rec['id'])
+        if prior is not None:
+            mm, reason = prior['mm_name'], 'imported by the first run'
+            if mm not in chat_channels and mm != TOWN_SQUARE:
+                missing.append(mm)
+        else:
+            mm, reason = mm_name_for(rec['name'], rec['id'])
+        if rec.get('_orphan') and prior is None:
             reason = 'folder not in channels.json; imported as archived'
-        if mm == TOWN_SQUARE and rec['name'] == SLACK_GENERAL:
+        if prior is not None or (mm == TOWN_SQUARE and rec['name'] == SLACK_GENERAL):
             used.add(mm)
         else:
             wanted, mm = mm, unique(mm)
@@ -134,6 +154,8 @@ def plan_channels(channels, folders, chat_channels, folder_messages, bot_users=(
             delete_at = int(last_ts * 1000) or 1
             rec['updated'] = delete_at  # mmetl uses `updated` (ms) as the archive time
         display = 'Town Square' if mm == TOWN_SQUARE else truncate(rec['name'].strip('_-') or mm, DISPLAY_NAME_MAX)
+        if prior is not None:
+            display = prior['mm_display_name']
         rows.append({'slack_id': rec['id'], 'slack_name': rec['name'], 'folder': folder,
                      'mm_name': mm, 'mm_display_name': display,
                      'archived': str(bool(rec.get('is_archived'))).lower(),
@@ -141,15 +163,22 @@ def plan_channels(channels, folders, chat_channels, folder_messages, bot_users=(
         folder_to_mm[folder] = mm
         rec['name'] = mm
         rec.pop('_orphan', None)
+    if missing:
+        raise MigrationError('channels the first import created are not in the chat snapshot '
+                             f'(renamed or deleted in chat?): {", ".join(sorted(missing))}')
     return records, rows, folder_to_mm
 
 
 # ---------------------------------------------------------------- people and bots
 
-def plan_users(users, identities, missing_rows, bot_names_seen, taken_names):
-    """users.json with final usernames and emails, plus synthetic users/bots."""
+def plan_users(users, identities, missing_rows, bot_names_seen, taken_names, prior_bots=None):
+    """users.json with final usernames and emails, plus synthetic users/bots.
+
+    prior_bots (re-import): {user or bot id: username} from the first run; those
+    bots keep that name (their chat account already exists)."""
     out = []
-    used = set(taken_names) | {i['username'] for i in identities.values()}
+    prior_bots = prior_bots or {}
+    used = set(taken_names) | {i['username'] for i in identities.values()} | set(prior_bots.values())
     for u in users:
         u = json.loads(json.dumps(u))
         if u.get('is_bot'):
@@ -173,7 +202,9 @@ def plan_users(users, identities, missing_rows, bot_names_seen, taken_names):
     bot_ids = ({(u.get('profile') or {}).get('bot_id') for u in out if u.get('is_bot')}
                | {u['id'] for u in out})
     for u in out:
-        if u.get('is_bot'):
+        if u.get('is_bot') and u['id'] in prior_bots:
+            u['name'] = prior_bots[u['id']]
+        elif u.get('is_bot'):
             name = u['name'].lower()
             if name in used or not valid_username(name):
                 name = unique_bot_name(slug(name, r'a-z0-9._-') or 'bot', used)
@@ -183,7 +214,11 @@ def plan_users(users, identities, missing_rows, bot_names_seen, taken_names):
     for bot_id, label in sorted(bot_names_seen.items()):
         if bot_id in bot_ids:
             continue
-        if bot_id == SLACKBOT_BOT:
+        if bot_id == SLACKBOT_BOT and SLACKBOT_USER in prior_bots:
+            name, uid, real = prior_bots[SLACKBOT_USER], SLACKBOT_USER, 'Slackbot'
+        elif bot_id in prior_bots:
+            name, uid, real = prior_bots[bot_id], bot_id, label or bot_id
+        elif bot_id == SLACKBOT_BOT:
             name = SLACKBOT_NAME if SLACKBOT_NAME not in used else unique_bot_name(SLACKBOT_NAME, used)
             uid, real = SLACKBOT_USER, 'Slackbot'
         else:
@@ -288,7 +323,7 @@ def fix_message(m, available, emoji, stats, bot_users=None, username_bots=None):
         m['text'] = ((m.get('text') or '') + ('\n' if m.get('text') else '') + '\n'.join(notes))
     m['text'] = rename_emoji(m.get('text'), emoji)
     for r in m.get('reactions') or []:
-        if r.get('name') in emoji:
+        if r.get('name') in emoji and emoji[r['name']] != r['name']:
             r['name'] = emoji[r['name']]
             stats['reactions renamed'] += 1
     return m
@@ -326,8 +361,21 @@ def load_emoji_map(path):
     return out
 
 
+def load_prior_emoji_map(path):
+    """Re-import: every Slack name the first run's map lists, pinned to what the
+    first run did with it (its chat name, or unchanged when it was not renamed
+    or failed), so the new map cannot change an old message's text."""
+    out = {}
+    for row in read_csv(path):
+        usable = row['mm_name'] and row['status'] != 'failed'
+        out[row['slack_name']] = row['mm_name'] if usable else row['slack_name']
+    return out
+
+
 def prepare(input_zip, upload_zips, identity_rows, chat_users, chat_channels, emoji,
-            output_zip, channel_map_path, archive_state=None):
+            output_zip, channel_map_path, archive_state=None, prior=None):
+    """prior (re-import): {'channels': {slack_id: channel_map row}, 'people': ...,
+    'bots': ...} from the first run (common.load_prior_users)."""
     stats = collections.Counter()
     tmp = output_zip + '.partial'
     try:
@@ -335,7 +383,7 @@ def prepare(input_zip, upload_zips, identity_rows, chat_users, chat_channels, em
             zf = stack.enter_context(zipfile.ZipFile(input_zip))
             sources = [zf] + [stack.enter_context(zipfile.ZipFile(p)) for p in upload_zips]
             out_users, map_rows = _write_prepared(zf, sources, identity_rows, chat_users, chat_channels,
-                                                  emoji, tmp, archive_state, stats)
+                                                  emoji, tmp, archive_state, stats, prior)
         os.replace(tmp, output_zip)
     finally:
         if os.path.exists(tmp):
@@ -346,6 +394,16 @@ def prepare(input_zip, upload_zips, identity_rows, chat_users, chat_channels, em
     stats['channels renamed'] = sum(1 for r in map_rows if r['mm_name'] != r['slack_name'])
     stats['bot accounts'] = sum(1 for u in out_users if u.get('is_bot'))
     stats['people'] = sum(1 for u in out_users if not u.get('is_bot'))
+    if prior:
+        stats['re-import: channels from the first import'] = sum(
+            1 for r in map_rows if r['reason'] == 'imported by the first run')
+        stats['re-import: new channels'] = len(map_rows) - stats['re-import: channels from the first import']
+        stats['re-import: people from the first import'] = sum(
+            1 for u in out_users if not u.get('is_bot') and u['id'] in prior['people'])
+        stats['re-import: new people'] = stats['people'] - stats['re-import: people from the first import']
+        stats['re-import: bots from the first import'] = sum(
+            1 for u in out_users if u.get('is_bot') and u['id'] in prior['bots'])
+        stats['re-import: new bots'] = stats['bot accounts'] - stats['re-import: bots from the first import']
     return stats
 
 
@@ -408,7 +466,8 @@ def choose_uploads(sources, file_sizes, file_names, stats):
 
 
 def _write_prepared(zf, sources, identity_rows, chat_users, chat_channels, emoji, tmp,
-                    archive_state, stats):
+                    archive_state, stats, prior=None):
+    prior = prior or {}
     infos = {member_name(i): i for i in zf.infolist() if not i.is_dir()}
     channels = json.loads(zf.read(infos['channels.json']))
     users = json.loads(zf.read(infos['users.json']))
@@ -426,15 +485,15 @@ def _write_prepared(zf, sources, identity_rows, chat_users, chat_channels, emoji
     ids_in_users = {u['id'] for u in users}
     missing_rows = [r for r in identity_rows
                     if r['slack_id'] not in ids_in_users and r['is_bot'] != 'true']
-    identities = resolve_identities(identity_rows, chat_users)
+    identities = resolve_identities(identity_rows, chat_users, prior.get('people'))
     out_users = plan_users(users, identities, missing_rows, bot_labels,
-                           {u['username'].lower() for u in chat_users})
+                           {u['username'].lower() for u in chat_users}, prior.get('bots'))
     bot_users = {u['id']: (u.get('profile') or {}).get('bot_id') or u['id']
                  for u in users if u.get('is_bot')}
     bot_users[SLACKBOT_USER] = SLACKBOT_BOT
     records, map_rows, folder_to_mm = plan_channels(
         channels, set(folder_messages), chat_channels, folder_messages, bot_users,
-        archive_state)
+        archive_state, prior.get('channels'))
 
     with open_private(tmp, 'wb') as raw, zipfile.ZipFile(raw, 'w', zipfile.ZIP_DEFLATED) as out:
         out.writestr('channels.json', json.dumps(records, ensure_ascii=False, indent=1))
@@ -481,20 +540,37 @@ def main(argv=None):
     ap.add_argument('--channel-map', required=True, help='channel_map.csv to write')
     ap.add_argument('--report', required=True)
     ap.add_argument('--archive-state', help='channel_counts.csv from the pre-freeze export')
+    ap.add_argument('--reimport-from', metavar='FIRST_RUN_DIR',
+                    help="re-import: the first run's work directory (channel_map.csv, prepared.zip, import.zip)")
+    ap.add_argument('--prior-emoji-map', help="re-import: the emoji_map.csv the first run used")
     a = ap.parse_args(argv)
+    if bool(a.reimport_from) != bool(a.prior_emoji_map):
+        print('error: --reimport-from and --prior-emoji-map go together', file=sys.stderr)
+        return 2
     inputs = [a.input, *a.uploads, a.identity, a.chat_users, a.chat_channels]
-    inputs += [p for p in (a.emoji_map, a.archive_state) if p]
+    inputs += [p for p in (a.emoji_map, a.archive_state, a.prior_emoji_map) if p]
     outputs = [a.output, a.channel_map, a.report]
     if clash(outputs, inputs) or clash(outputs[:1], outputs[1:]) or clash(outputs[1:2], outputs[2:]):
         print('error: --output, --channel-map and --report must be three different files, '
               'none of them an input', file=sys.stderr)
         return 2
     try:
+        prior, emoji = None, load_emoji_map(a.emoji_map)
+        if a.reimport_from:
+            paths = prior_paths(a.reimport_from)
+            if clash(outputs, list(paths.values())):
+                print('error: outputs must not overwrite the first run\'s files', file=sys.stderr)
+                return 2
+            people, bots = load_prior_users(paths['prepared.zip'])
+            prior = {'channels': {r['slack_id']: r for r in read_csv(paths['channel_map.csv'])},
+                     'people': people, 'bots': bots}
+            # The first run's renames win, so old text is rewritten exactly as before.
+            emoji.update(load_prior_emoji_map(a.prior_emoji_map))
         stats = prepare(a.input, a.uploads, read_csv(a.identity), load_chat_users(a.chat_users),
-                        load_chat_channels(a.chat_channels), load_emoji_map(a.emoji_map),
+                        load_chat_channels(a.chat_channels), emoji,
                         a.output, a.channel_map,
                         {r['folder']: r['archived'] == 'true' for r in read_csv(a.archive_state)}
-                        if a.archive_state else None)
+                        if a.archive_state else None, prior)
     except MigrationError as e:
         print(f'error: {e}', file=sys.stderr)
         return 2
