@@ -9,14 +9,15 @@ import type {IDMappedObjects} from '@mattermost/types/utilities';
 
 import type {MMReduxAction} from 'mattermost-redux/action_types';
 import {GeneralTypes, UserTypes} from 'mattermost-redux/action_types';
+import {iflClientConfig} from 'mattermost-redux/utils/ifl_client_config'; // IFL: drop mattermost.com links
 
 function config(state: Partial<ClientConfig> = {}, action: MMReduxAction) {
     switch (action.type) {
     case GeneralTypes.CLIENT_CONFIG_RECEIVED:
-        return Object.assign({}, state, action.data);
+        return iflClientConfig(Object.assign({}, state, action.data)); // IFL: no mattermost.com links
     case UserTypes.LOGIN: // Used by the mobile app
     case GeneralTypes.SET_CONFIG_AND_LICENSE:
-        return Object.assign({}, state, action.data.config);
+        return iflClientConfig(Object.assign({}, state, action.data.config)); // IFL: no mattermost.com links
     case GeneralTypes.CLIENT_CONFIG_RESET:
     case UserTypes.LOGOUT_SUCCESS:
         return {};

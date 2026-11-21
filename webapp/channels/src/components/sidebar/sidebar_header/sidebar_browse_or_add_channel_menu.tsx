@@ -18,6 +18,7 @@ import {getCurrentTeamId} from 'mattermost-redux/selectors/entities/teams';
 
 import {getSidebarBrowseOrAddChannelMenuPluginComponents} from 'selectors/plugins';
 
+import {IFL_TEAM_INVITES} from 'components/ifl/ifl_features'; // IFL: no team invites
 import * as Menu from 'components/menu';
 import {OnboardingTourSteps} from 'components/tours';
 import {useShowOnboardingTutorialStep, CreateAndJoinChannelsTour, InvitePeopleTour} from 'components/tours/onboarding_tour';
@@ -205,8 +206,8 @@ export default function SidebarBrowserOrAddChannelMenu(props: Props) {
                 <Menu.Separator/>
             }
             {createNewCategoryMenuItem}
-            <Menu.Separator/>
-            {invitePeopleMenuItem}
+            {IFL_TEAM_INVITES && <Menu.Separator/> /* IFL: no "Invite people" item */}
+            {IFL_TEAM_INVITES && invitePeopleMenuItem}
         </Menu.Container>
     );
 }

@@ -123,7 +123,8 @@ describe('components/channel_header/components/UserGuideDropdown', () => {
         expect(screen.queryByText('Report a problem')).not.toBeInTheDocument();
     });
 
-    test('links Mattermost documentation to bundled docs on a root SiteURL', () => {
+    // IFL: a link to iflgm.com in place of Mattermost's documentation
+    test('links iflgm.com and not the Mattermost documentation', () => {
         renderWithContext(
             <UserGuideDropdown
                 {...baseProps}
@@ -132,24 +133,8 @@ describe('components/channel_header/components/UserGuideDropdown', () => {
         );
 
         openMenu();
-        expect(screen.getByRole('link', {name: 'Mattermost documentation'})).toHaveAttribute(
-            'href',
-            'https://chat.example.com/_documentation/',
-        );
-    });
-
-    test('links Mattermost documentation to the public docs site when SiteURL has a subpath', () => {
-        renderWithContext(
-            <UserGuideDropdown
-                {...baseProps}
-                siteURL='https://example.com/mattermost'
-            />,
-        );
-
-        openMenu();
-        const link = screen.getByRole('link', {name: 'Mattermost documentation'});
-        expect(link).toHaveAttribute('href', expect.stringContaining(MATTERMOST_DOCS_URL));
-        expect(link).not.toHaveAttribute('href', expect.stringContaining('/_documentation/'));
+        expect(screen.getByRole('link', {name: 'iflgm.com'})).toHaveAttribute('href', 'https://iflgm.com');
+        expect(screen.queryByRole('link', {name: 'Mattermost documentation'})).not.toBeInTheDocument();
     });
 });
 

@@ -76,10 +76,10 @@ describe('components/onboarding_tasklist/onboarding_tasklist_completed.tsx', () 
         expect(dismissMockFn).toHaveBeenCalledTimes(1);
     });
 
-    test('displays download apps link when not in desktop app', () => {
+    test('hides download apps link when not in desktop app', () => { // IFL: no app download prompt (was: displays)
         isDesktopAppMock.mockReturnValue(false);
         const {container} = renderWithContext(<Completed {...props}/>, initialState);
-        expect(container.querySelectorAll('.download-apps')).toHaveLength(1);
+        expect(container.querySelectorAll('.download-apps')).toHaveLength(0);
     });
 
     test('hides download apps link when in desktop app', () => {

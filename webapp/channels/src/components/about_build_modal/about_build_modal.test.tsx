@@ -77,9 +77,12 @@ describe('components/AboutBuildModal', () => {
         expect(screen.getByTestId('aboutModalVersionInfo')).toHaveTextContent('Server Version: 3.6.0');
         expect(screen.getByTestId('aboutModalVersionInfo')).toHaveTextContent('Database Schema Version: 77');
         expect(screen.getByTestId('aboutModalVersionInfo')).toHaveTextContent('Build Number: 123456');
-        expect(screen.getByText('Mattermost Entry')).toBeInTheDocument();
-        expect(screen.getByText('Modern communication from behind your firewall.')).toBeInTheDocument();
-        expect(screen.getByRole('link', {name: 'mattermost.com'})).toHaveAttribute('href', 'https://mattermost.com/?utm_source=mattermost&utm_medium=in-product&utm_content=about_build_modal&uid=&sid=&edition=enterprise&server_version=3.6.0');
+
+        // IFL: IFL Chat's name and tagline; the credit names the edition
+        expect(screen.getByText('IFL Chat')).toBeInTheDocument();
+        expect(screen.getByText('League chat for the International Fantasy League')).toBeInTheDocument();
+        expect(screen.getByTestId('ifl-about-credit')).toHaveTextContent('Built on Mattermost Entry, open source software.');
+        expect(screen.queryByRole('link', {name: 'mattermost.com'})).not.toBeInTheDocument();
         expect(screen.getByText('EE Build Hash: 0123456789abcdef', {exact: false})).toBeInTheDocument();
         expect(screen.queryByText('Hostname: mock.localhost', {exact: false})).toBeInTheDocument();
 
@@ -99,9 +102,12 @@ describe('components/AboutBuildModal', () => {
         expect(screen.getByTestId('aboutModalVersionInfo')).toHaveTextContent('Server Version: 3.6.0');
         expect(screen.getByTestId('aboutModalVersionInfo')).toHaveTextContent('Database Schema Version: 77');
         expect(screen.getByTestId('aboutModalVersionInfo')).toHaveTextContent('Build Number: 123456');
-        expect(screen.getByText('Mattermost Team Edition')).toBeInTheDocument();
-        expect(screen.getByText('All your team communication in one place, instantly searchable and accessible anywhere.')).toBeInTheDocument();
-        expect(screen.getByRole('link', {name: 'mattermost.com/community/'})).toHaveAttribute('href', 'https://mattermost.com/community/?utm_source=mattermost&utm_medium=in-product&utm_content=about_build_modal&uid=&sid=&edition=team&server_version=3.6.0');
+
+        // IFL: IFL Chat's name and tagline; the credit names the edition and links the source at the build's commit
+        expect(screen.getByText('IFL Chat')).toBeInTheDocument();
+        expect(screen.getByText('League chat for the International Fantasy League')).toBeInTheDocument();
+        expect(screen.getByTestId('ifl-about-credit')).toHaveTextContent('Built on Mattermost Team Edition, open source software.');
+        expect(screen.getByRole('link', {name: 'github.com/friscojosh/ifl-chat'})).toHaveAttribute('href', 'https://github.com/friscojosh/ifl-chat/tree/abcdef1234567890');
         expect(screen.queryByText('EE Build Hash: 0123456789abcdef')).not.toBeInTheDocument();
         expect(screen.queryByText('Hostname: disconnected', {exact: false})).toBeInTheDocument();
 
@@ -149,9 +155,13 @@ describe('components/AboutBuildModal', () => {
         expect(screen.getByTestId('aboutModalVersionInfo')).toHaveTextContent('Server Version: dev');
         expect(screen.getByTestId('aboutModalVersionInfo')).toHaveTextContent('Database Schema Version: 77');
         expect(screen.getByTestId('aboutModalVersionInfo')).toHaveTextContent('Build Number: n/a');
-        expect(screen.getByText('Mattermost Team Edition')).toBeInTheDocument();
-        expect(screen.getByText('All your team communication in one place, instantly searchable and accessible anywhere.')).toBeInTheDocument();
-        expect(screen.getByRole('link', {name: 'mattermost.com/community/'})).toHaveAttribute('href', 'https://mattermost.com/community/?utm_source=mattermost&utm_medium=in-product&utm_content=about_build_modal&uid=&sid=&edition=team&server_version=dev');
+
+        // IFL: IFL Chat's name and tagline, crediting the Mattermost edition with a link to the source
+        expect(screen.getByText('IFL Chat')).toBeInTheDocument();
+        expect(screen.getByText('League chat for the International Fantasy League')).toBeInTheDocument();
+        expect(screen.getByTestId('ifl-about-credit')).toHaveTextContent('Built on Mattermost Team Edition, open source software.');
+        expect(screen.getByRole('link', {name: 'github.com/friscojosh/ifl-chat'})).toHaveAttribute('href', 'https://github.com/friscojosh/ifl-chat/tree/abcdef1234567890');
+        expect(screen.queryByRole('link', {name: 'mattermost.com/community/'})).not.toBeInTheDocument();
         expect(screen.queryByText('EE Build Hash: 0123456789abcdef')).not.toBeInTheDocument();
         expect(screen.queryByText('Hostname: server did not provide hostname', {exact: false})).toBeInTheDocument();
 
@@ -190,7 +200,8 @@ describe('components/AboutBuildModal', () => {
         expect(onExited).toHaveBeenCalledTimes(1);
     });
 
-    test('should show default tos and privacy policy links and not the config links', () => {
+    // IFL: iflgm.com in place of Mattermost's terms and privacy policy links
+    test('should show the iflgm.com link and no terms or privacy policy links', () => {
         const state = {
             entities: {
                 general: {
@@ -214,12 +225,9 @@ describe('components/AboutBuildModal', () => {
             state,
         );
 
-        expect(screen.getByRole('link', {name: 'Terms of Use'})).toHaveAttribute('href', `${AboutLinks.TERMS_OF_SERVICE}?utm_source=mattermost&utm_medium=in-product&utm_content=about_build_modal&uid=currentUserId&sid=&edition=enterprise&server_version=3.6.0`);
-
-        expect(screen.getByRole('link', {name: 'Privacy Policy'})).toHaveAttribute('href', `${AboutLinks.PRIVACY_POLICY}?utm_source=mattermost&utm_medium=in-product&utm_content=about_build_modal&uid=currentUserId&sid=&edition=enterprise&server_version=3.6.0`);
-
-        expect(screen.getByRole('link', {name: 'Terms of Use'})).not.toHaveAttribute('href', config?.TermsOfServiceLink);
-        expect(screen.getByRole('link', {name: 'Privacy Policy'})).not.toHaveAttribute('href', config?.PrivacyPolicyLink);
+        expect(screen.getByRole('link', {name: 'iflgm.com'})).toHaveAttribute('href', 'https://iflgm.com');
+        expect(screen.queryByRole('link', {name: 'Terms of Use'})).not.toBeInTheDocument();
+        expect(screen.queryByRole('link', {name: 'Privacy Policy'})).not.toBeInTheDocument();
     });
 
     test('should show load metric when license is loaded and API returns data', async () => {

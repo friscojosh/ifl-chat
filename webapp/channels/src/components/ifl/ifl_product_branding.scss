@@ -1,0 +1,22 @@
+// IFL: new file. Styles for ifl_product_branding.tsx, matching the licensed
+// edition's product name in left_controls.scss.
+
+.globalHeader-leftControls-productBranding-ifl {
+    display: flex;
+    align-items: center;
+    color: rgba(var(--sidebar-text-rgb), 0.85);
+    gap: 8px;
+
+    &-icon {
+        display: block;
+        flex-shrink: 0;
+        border-radius: 5px;
+    }
+
+    &-name {
+        font-family: "Metropolis", sans-serif;
+        font-size: 16px;
+        font-weight: bold;
+        white-space: nowrap;
+    }
+}

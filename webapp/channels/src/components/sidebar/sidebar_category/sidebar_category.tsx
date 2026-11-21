@@ -15,6 +15,7 @@ import type {PreferenceType} from '@mattermost/types/preferences';
 import {CategoryTypes} from 'mattermost-redux/constants/channel_categories';
 import {localizeMessage} from 'mattermost-redux/utils/i18n_utils';
 
+import {IFL_TEAM_INVITES} from 'components/ifl/ifl_features'; // IFL: no team invites
 import KeyboardShortcutSequence, {
     KEYBOARD_SHORTCUTS,
 } from 'components/keyboard_shortcuts/keyboard_shortcuts_sequence';
@@ -370,7 +371,7 @@ export default class SidebarCategory extends React.PureComponent<Props, State> {
             >
                 {(provided, snapshot) => {
                     let inviteMembersButton = null;
-                    if (category.type === 'direct_messages' && !category.collapsed) {
+                    if (IFL_TEAM_INVITES && category.type === 'direct_messages' && !category.collapsed) { // IFL: no "Invite Members" button
                         inviteMembersButton = (
                             <InviteMembersButton
                                 className='followingSibling'

@@ -54,13 +54,16 @@ describe('onboarding tasks manager', () => {
         },
     };
 
-    it('Places all the elements (6 ignoring plugins) when user is first admin or admin', () => {
+    // IFL: invite_people and download_app are never listed, so each count is two fewer than upstream's
+    it('Places all the elements (4 ignoring plugins) when user is first admin or admin', () => {
         renderWithContext(
             <WrapperComponent/>,
             initialState,
         );
 
-        expect(screen.getAllByRole('listitem')).toHaveLength(6);
+        expect(screen.getAllByRole('listitem')).toHaveLength(4);
+        expect(screen.queryByText('invite_people')).not.toBeInTheDocument();
+        expect(screen.queryByText('download_app')).not.toBeInTheDocument();
 
         // find the visit system console and start_trial
         expect(screen.getByText('visit_system_console')).toBeInTheDocument();
@@ -75,7 +78,7 @@ describe('onboarding tasks manager', () => {
             endUserState,
         );
 
-        expect(screen.getAllByRole('listitem')).toHaveLength(4);
+        expect(screen.getAllByRole('listitem')).toHaveLength(2); // IFL: was 4
 
         // verify visit_system_console and start_trial were removed
         expect(screen.queryByText('visit_system_console')).not.toBeInTheDocument();
@@ -90,7 +93,7 @@ describe('onboarding tasks manager', () => {
             endUserState,
         );
 
-        expect(screen.getAllByRole('listitem')).toHaveLength(3);
+        expect(screen.getAllByRole('listitem')).toHaveLength(2); // IFL: was 3
 
         // verify visit_system_console and start_trial were removed
         expect(screen.queryByText('invite_people')).not.toBeInTheDocument();
@@ -103,7 +106,7 @@ describe('onboarding tasks manager', () => {
             initialState,
         );
 
-        expect(screen.getAllByRole('listitem')).toHaveLength(5);
+        expect(screen.getAllByRole('listitem')).toHaveLength(4); // IFL: was 5
         expect(screen.queryByText('download_app')).not.toBeInTheDocument();
         isDesktopAppMock.mockReturnValue(false);
     });
