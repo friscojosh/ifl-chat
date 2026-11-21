@@ -4366,7 +4366,7 @@
   },
   {
     "id": "api.push_notification.id_loaded.default_message",
-    "translation": "You've received a new message.",
+    "translation": "New message in IFL Chat",
     "description": "Generic mobile push notification body used when message content is withheld (ID-only push mode); the client fetches the real content separately."
   },
   {
