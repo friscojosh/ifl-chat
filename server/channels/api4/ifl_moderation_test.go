@@ -24,7 +24,18 @@ import (
 // also team_user in the team and channel_user in each channel they belong to,
 // so own-post edits, create_post and reading come from those roles; the
 // moderator role adds only what a member lacks.
-var iflModeratorPermissions = []string{"delete_others_posts", "edit_others_posts"}
+var iflModeratorPermissions = []string{
+	"delete_others_posts", "edit_others_posts",
+	"manage_public_channel_properties", "manage_private_channel_properties",
+	"delete_public_channel", "delete_private_channel",
+}
+
+// iflChannelSettings move from every channel member (channel_user) to the
+// channel's admins (channel_admin, its creator): decision D3.
+var iflChannelSettings = []string{
+	"manage_public_channel_properties", "manage_private_channel_properties",
+	"delete_public_channel", "delete_private_channel",
+}
 
 // iflApplyModerationRoles replaces team_admin's permissions with the
 // allowlist, as provision.sh does: whatever the role held before (stock
@@ -41,6 +52,19 @@ func iflApplyModerationRoles(t *testing.T, th *TestHelper) {
 	perms := slices.Clone(iflModeratorPermissions)
 	_, _, err = th.SystemAdminClient.PatchRole(ctx, role.Id, &model.RolePatch{Permissions: &perms})
 	require.NoError(t, err)
+
+	// provision.sh's `mmctl permissions remove channel_user …` and
+	// `add channel_admin …`.
+	for name, add := range map[string]bool{model.ChannelUserRoleId: false, model.ChannelAdminRoleId: true} {
+		role, _, err := th.SystemAdminClient.GetRoleByName(ctx, name)
+		require.NoError(t, err)
+		perms := slices.DeleteFunc(slices.Clone(role.Permissions), func(p string) bool { return slices.Contains(iflChannelSettings, p) })
+		if add {
+			perms = append(perms, iflChannelSettings...)
+		}
+		_, _, err = th.SystemAdminClient.PatchRole(ctx, role.Id, &model.RolePatch{Permissions: &perms})
+		require.NoError(t, err)
+	}
 }
 
 // iflMember is a GM: a plain member of the team and of each channel, signed
@@ -286,6 +310,39 @@ func TestIFLCommissionerModeration(t *testing.T) {
 		CheckForbiddenStatus(t, resp)
 		resp, _ = commissionerClient.UpdateChannelRoles(ctx, open.Id, gm.Id, "channel_user channel_admin")
 		CheckForbiddenStatus(t, resp)
+	})
+
+	t.Run("channel settings: the creator and the commissioner, not other members", func(t *testing.T) {
+		name := "Renamed"
+		// A member who did not create the channel: no rename, no archive.
+		for _, ch := range []*model.Channel{open, private} {
+			_, resp, _ := gmClient.PatchChannel(ctx, ch.Id, &model.ChannelPatch{DisplayName: &name})
+			CheckForbiddenStatus(t, resp)
+			resp, _ = gmClient.DeleteChannel(ctx, ch.Id)
+			CheckForbiddenStatus(t, resp)
+		}
+		// The creator (channel admin) renames and archives.
+		_, resp, _ := th.Client.PatchChannel(ctx, open.Id, &model.ChannelPatch{DisplayName: &name})
+		CheckOKStatus(t, resp)
+		archived := th.CreateChannelWithClient(t, th.Client, model.ChannelTypeOpen)
+		resp, _ = th.Client.DeleteChannel(ctx, archived.Id)
+		CheckOKStatus(t, resp)
+		// The commissioner renames and archives channels they are in.
+		setModerator(commissioner, true)
+		defer setModerator(commissioner, false)
+		_, resp, _ = commissionerClient.PatchChannel(ctx, private.Id, &model.ChannelPatch{DisplayName: &name})
+		CheckOKStatus(t, resp)
+		joined := th.CreateChannelWithClient(t, th.Client, model.ChannelTypePrivate)
+		th.AddUserToChannel(t, commissioner, joined)
+		resp, _ = commissionerClient.DeleteChannel(ctx, joined.Id)
+		CheckOKStatus(t, resp)
+		// Only in channels they are in (app/ifl_moderation.go).
+		for _, ch := range []*model.Channel{elsewhere, secret} {
+			_, resp, _ = commissionerClient.PatchChannel(ctx, ch.Id, &model.ChannelPatch{DisplayName: &name})
+			CheckForbiddenStatus(t, resp)
+			resp, _ = commissionerClient.DeleteChannel(ctx, ch.Id)
+			CheckForbiddenStatus(t, resp)
+		}
 	})
 
 	t.Run("every GM may create a channel (stock team_user)", func(t *testing.T) {
