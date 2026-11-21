@@ -97,6 +97,8 @@ The PNGs in `webapp/channels/src/images/favicon/` are replaced with IFL Chat ico
 
 The header_footer_template snapshots (`webapp/channels/src/components/header_footer_template/__snapshots__/`) record the league footer; regenerate with jest `-u` on a conflict.
 
+`webapp/channels/src/components/rhs_card/__snapshots__/rhs_card.test.tsx.snap` records the Goodell Bot avatar for a system post; regenerate with jest `-u` on a conflict.
+
 Likewise `webapp/channels/src/components/signup/__snapshots__/signup.test.tsx.snap` records the iflgm.com GitLab option (no icon, "Sign in with iflgm.com"); on a conflict, regenerate it with jest `-u` and check that only that changed.
 
 ## Configuration
