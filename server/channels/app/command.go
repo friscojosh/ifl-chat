@@ -166,6 +166,10 @@ func (a *App) ListAutocompleteCommands(teamID string, T i18n.TranslateFunc) ([]*
 	for _, value := range commandProviders {
 		if cmd := value.GetCommand(a, T); cmd != nil {
 			cpy := *cmd
+			// IFL: with custom commands off, autocomplete offers only the built-ins that run (plan 9).
+			if !*a.Config().ServiceSettings.EnableCommands && !iflBuiltInRuns(cpy.Trigger) {
+				continue
+			}
 			if cpy.AutoComplete && !seen[cpy.Trigger] {
 				cpy.Sanitize()
 				seen[cpy.Trigger] = true
@@ -438,6 +442,10 @@ func (a *App) tryExecuteBuiltInCommand(rctx request.CTX, args *model.CommandArgs
 func (a *App) tryExecuteCustomCommand(rctx request.CTX, args *model.CommandArgs, trigger string, message string) (*model.Command, *model.CommandResponse, *model.AppError) {
 	// Handle custom commands
 	if !*a.Config().ServiceSettings.EnableCommands {
+		// IFL: with custom commands off, the allowlisted built-ins (/trade, /away, …; ifl_trade.go) still run (plan 9).
+		if iflBuiltInRuns(trigger) {
+			return nil, nil, nil
+		}
 		return nil, nil, model.NewAppError("ExecuteCommand", "api.command.disabled.app_error", nil, "", http.StatusNotImplemented)
 	}
 
