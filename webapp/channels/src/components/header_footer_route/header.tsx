@@ -3,16 +3,12 @@
 
 import classNames from 'classnames';
 import React from 'react';
-import {useSelector} from 'react-redux';
 import {Link} from 'react-router-dom';
 
-import {getConfig, getLicense} from 'mattermost-redux/selectors/entities/general';
-
 import BackButton from 'components/common/back_button';
-import Logo from 'components/common/svg_images_components/logo_dark_blue_svg';
 
 import './header.scss';
-import {LicenseSkus} from 'utils/constants';
+import {IFL_APP_NAME, IflHeaderBrand} from './ifl_branding'; // IFL: replaces the Mattermost logo, license and config imports
 
 export type HeaderProps = {
     alternateLink?: React.ReactElement<any>;
@@ -21,26 +17,10 @@ export type HeaderProps = {
 };
 
 const Header = ({alternateLink, backButtonURL, onBackButtonClick}: HeaderProps) => {
-    const {SiteName} = useSelector(getConfig);
-    const license = useSelector(getLicense);
-
-    const ariaLabel = SiteName || 'Mattermost';
-
-    let freeBanner = null;
-    if (license.IsLicensed === 'false') {
-        freeBanner = <><Logo/><span className='freeBadge'>{'TEAM EDITION'}</span></>;
-    } else if (license.SkuShortName === LicenseSkus.Entry) {
-        freeBanner = <><Logo/><span className='freeBadge'>{'ENTRY EDITION'}</span></>;
-    }
-
-    let title: React.ReactNode = SiteName;
-    if (title === 'Mattermost') {
-        if (freeBanner) {
-            title = '';
-        } else {
-            title = <Logo/>;
-        }
-    }
+    // IFL: the IFL Chat icon and name, with no Mattermost logo or edition badge
+    const freeBanner = null;
+    const title: React.ReactNode = <IflHeaderBrand/>;
+    const ariaLabel = IFL_APP_NAME;
 
     return (
         <div

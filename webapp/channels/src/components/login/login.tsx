@@ -35,6 +35,7 @@ import type {ExternalLoginButtonType} from 'components/external_login_button/ext
 import AlternateLinkLayout from 'components/header_footer_route/content_layouts/alternate_link';
 import ColumnLayout from 'components/header_footer_route/content_layouts/column';
 import type {CustomizeHeaderType} from 'components/header_footer_route/header_footer_route';
+import {IFL_TAGLINE} from 'components/header_footer_route/ifl_branding'; // IFL: league tagline
 import LoadingScreen from 'components/loading_screen';
 import Markdown from 'components/markdown';
 import SaveButton from 'components/save_button';
@@ -896,7 +897,7 @@ const Login = ({onCustomizeHeader}: LoginProps) => {
 
         return (
             <p className='login-body-message-subtitle'>
-                {formatMessage({id: 'login.subtitle', defaultMessage: 'Collaborate with your team in real-time'})}
+                {IFL_TAGLINE /* IFL: league tagline instead of login.subtitle */}
             </p>
         );
     };

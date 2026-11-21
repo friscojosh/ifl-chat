@@ -25895,10 +25895,6 @@
     "defaultMessage": "* Session Expired - {siteName}",
     "description": "Browser tab title on the login page after a session expiry; {siteName} is the server name; the leading '*' is an unread marker and should be kept."
   },
-  "login.subtitle": {
-    "defaultMessage": "Collaborate with your team in real-time",
-    "description": "Marketing subtitle displayed alongside the login form on the login page."
-  },
   "login.terms_rejected": {
     "defaultMessage": "You must agree to the terms of use before accessing {siteName}. Please contact your System Administrator for more details.",
     "description": "Banner on the login page after the user declined the terms of use; {siteName} is the server or site name."
@@ -30670,10 +30666,6 @@
   "signup_user_completed.signIn": {
     "defaultMessage": "Log in",
     "description": "Link at the top of the signup page taking existing users to the login page; 'Log in' is a verb phrase."
-  },
-  "signup_user_completed.subtitle": {
-    "defaultMessage": "Create your Mattermost account to start collaborating with your team",
-    "description": "Subtitle under the signup page heading."
   },
   "signup_user_completed.title": {
     "defaultMessage": "Let’s get started",

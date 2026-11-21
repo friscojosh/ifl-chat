@@ -6,6 +6,7 @@ IFL Chat is the International Fantasy League's chat service: a fork of Mattermos
 
 - **Sign-in through iflgm.com.** The site's sign-in is presented as a GitLab-shaped OAuth provider, so the standard GitLab option signs members in. After the site confirms a member's eligibility, the member is reactivated if needed, provisioned, and joined to the league team.
 - **Login page goes straight to iflgm.com.** The web login and signup pages show the GitLab option with no GitLab icon and the label "Sign in with iflgm.com" (`GitLabButtonText` still wins when set). When it is the only sign-in method, the login page navigates to `/oauth/gitlab/login` on load and shows "Signing in with iflgm.com…". The automatic URL is built from an allowlist: only `redirect_to`, and only a relative path (`^\/([^/]|$)`, the check login.tsx uses). The decision is made once, in an effect after the session-expiry check, with the store initialized and `currentUser` resolved. It shows the button instead when the query has any other parameter (`extra`, `error`, `t`, `id`, `desktop_token`, `login_hint`, …) or a non-relative or repeated `redirect_to`; when the session expired (`wasLoggedIn`) or a user is signed in; in the desktop app or an embedded view; within two minutes of the last attempt in this tab (an OAuth refusal ends on `/error`, whose link leads back here, so it cannot loop); and after a user-initiated sign-out (`ifl_signed_out` in localStorage, set in `emitUserLoggedOutEvent`, cleared by clicking the button or by loading the app signed in). Storage fails closed: if reading localStorage or sessionStorage throws, the page shows the button; an in-memory mirror keeps marks for the page's lifetime when storage cannot be written. Rules and strings: `webapp/channels/src/components/login/ifl_signin.ts`. The mobile apps draw their own login screen and are unaffected.
+- **IFL Chat branding on the signed-out pages.** The login and signup pages (and the other `HFRoute` pages) show the IFL Chat icon and name in the header instead of the Mattermost logo and "TEAM EDITION" badge, the tagline "League chat for the International Fantasy League" instead of Mattermost's, and a footer of "© <year> International Fantasy League" with a link to iflgm.com instead of Mattermost's copyright and the About, Privacy Policy, Terms and Help links. The `HFTRoute` footer (password reset, claim) gets the same copyright and link. The favicons (default, unread and mention variants, which the signed-in app also swaps between), the PWA manifest icons, name and description, the `application-name` meta and the no-JavaScript message say IFL Chat. The tab title is the server's `TeamSettings.SiteName` (static.go replaces root.html's `<title>Mattermost</title>`, so that line stays). Strings and the header and footer: `webapp/channels/src/components/header_footer_route/ifl_branding.tsx` and `ifl_footer.tsx`. The icons are generated from `branding/ifl-chat-icon-1024.png`.
 - **Panel sessions.** `POST /api/v4/ifl/session` accepts a signed, single-use panel token from the site and opens a chat session for the embedded panel (with a CSRF token).
 - **Email sync.** `PUT /api/v4/ifl/users/{user_id}/email` (system admin only) lets the site's relay set a site-linked member's email. The upstream patch route cannot: chat keeps an OAuth user's old email on an untrusted update. It answers 400 for an account that does not sign in through iflgm.com and 409 `ifl.email.conflict` when another account holds the address. A panel session also brings an existing member's email and name up to date from the panel token, as an OAuth sign-in does (an email held by another account is skipped).
 - **Panel WebSocket.** `GET /api/v4/ifl/websocket` is `/api/v4/websocket` for the iflgm.com panel: the session a chat cookie gives the handshake is dropped, so the panel's authentication challenge decides (browsers send chat.iflgm.com cookies with every handshake, and the stock route would ignore the challenge). Connections never resume, so each starts at sequence 0. When metrics are on, these connections are recorded as long requests in the API duration histogram, because `recordMetrics` exempts only the exact path `/api/v4/websocket` (`web/handlers.go:391`); harmless, and Team Edition has no metrics server.
@@ -14,7 +15,7 @@ IFL Chat is the International Fantasy League's chat service: a fork of Mattermos
 
 ## Hooks into upstream files
 
-Found with `grep -rn "// IFL" server webapp`. Keep every one when merging upstream.
+Found with `grep -rnE '(//|/\*|<!--) IFL' server webapp` (`// IFL`, `/* IFL` in JSX, `<!-- IFL` in HTML). Keep every one when merging upstream.
 
 | Location | Purpose |
 | --- | --- |
@@ -29,27 +30,49 @@ Found with `grep -rn "// IFL" server webapp`. Keep every one when merging upstre
 | `webapp/channels/src/actions/global_actions.tsx:276` | A user-initiated sign-out marks the browser signed out, so the login page does not sign straight back in. |
 | `webapp/channels/src/components/logged_in/logged_in.tsx:15` | Imports the iflgm.com sign-in helper. |
 | `webapp/channels/src/components/logged_in/logged_in.tsx:72` | Signed in again: clears the signed-out mark. |
-| `webapp/channels/src/components/login/login.tsx:58` | Imports the iflgm.com sign-in helper (replaces the GitLab icon import). |
-| `webapp/channels/src/components/login/login.tsx:155` | Decides whether the login page goes straight to iflgm.com. |
-| `webapp/channels/src/components/login/login.tsx:173` | GitLab option: no icon, "Sign in with iflgm.com" label, click clears the signed-out mark. |
-| `webapp/channels/src/components/login/login.tsx:554` | Decides once (after session-expiry detection, store ready, user resolved) and navigates to iflgm.com. |
-| `webapp/channels/src/components/login/login.tsx:874` | Card title "Sign in with your iflgm.com account" when iflgm.com is the only method. |
-| `webapp/channels/src/components/login/login.tsx:961` | "Signing in with iflgm.com…" status in place of the form. |
+| `webapp/channels/src/components/login/login.tsx:59` | Imports the iflgm.com sign-in helper (replaces the GitLab icon import). |
+| `webapp/channels/src/components/login/login.tsx:156` | Decides whether the login page goes straight to iflgm.com. |
+| `webapp/channels/src/components/login/login.tsx:174` | GitLab option: no icon, "Sign in with iflgm.com" label, click clears the signed-out mark. |
+| `webapp/channels/src/components/login/login.tsx:555` | Decides once (after session-expiry detection, store ready, user resolved) and navigates to iflgm.com. |
+| `webapp/channels/src/components/login/login.tsx:875` | Card title "Sign in with your iflgm.com account" when iflgm.com is the only method. |
+| `webapp/channels/src/components/login/login.tsx:962` | "Signing in with iflgm.com…" status in place of the form. |
 | `webapp/channels/src/components/login/login.test.tsx:318` | Upstream GitLab button test: no icon in the accessible name. |
 | `webapp/channels/src/components/login/login.test.tsx:772` | IFL login page tests. |
-| `webapp/channels/src/components/signup/signup.tsx:39` | Imports the iflgm.com label (replaces the GitLab icon import). |
-| `webapp/channels/src/components/signup/signup.tsx:164` | GitLab signup option: no icon, iflgm.com label. |
+| `webapp/channels/src/components/signup/signup.tsx:40` | Imports the iflgm.com label (replaces the GitLab icon import). |
+| `webapp/channels/src/components/signup/signup.tsx:165` | GitLab signup option: no icon, iflgm.com label. |
+| `webapp/channels/src/components/header_footer_route/header.tsx:11` | Imports the IFL Chat header brand (replaces the Mattermost logo, license and config imports). |
+| `webapp/channels/src/components/header_footer_route/header.tsx:20` | Header shows the IFL Chat icon and name; no Mattermost logo or edition badge. |
+| `webapp/channels/src/components/header_footer_route/header_footer_route.tsx:14` | Loads the league footer (`ifl_footer.tsx`) instead of `footer.tsx`. |
+| `webapp/channels/src/components/header_footer_template/header_footer_template.tsx:11` | Imports the IFL branding strings. |
+| `webapp/channels/src/components/header_footer_template/header_footer_template.tsx:115` | Footer name IFL Chat (was Mattermost). |
+| `webapp/channels/src/components/header_footer_template/header_footer_template.tsx:123` | League copyright. |
+| `webapp/channels/src/components/header_footer_template/header_footer_template.tsx:126` | iflgm.com link in place of the About, Privacy Policy, Terms and Help links. |
+| `webapp/channels/src/components/login/login.tsx:38` | Imports the league tagline. |
+| `webapp/channels/src/components/login/login.tsx:900` | League tagline instead of `login.subtitle`. |
+| `webapp/channels/src/components/signup/signup.tsx:38` | Imports the league tagline. |
+| `webapp/channels/src/components/signup/signup.tsx:412` | League tagline instead of `signup_user_completed.subtitle`. |
+| `webapp/channels/webpack.config.js:208` | PWA manifest name, short name and description. |
+| `webapp/channels/src/root.html:12` | `application-name` meta is IFL Chat (HTML comment). |
+| `webapp/channels/src/components/no_script/no_script_template.html:16` | No-JavaScript message names IFL Chat (HTML comment). |
+| `webapp/channels/src/components/header_footer_route/ifl_branding.tsx:1` | New file: IFL Chat header brand and branding strings (with `ifl_branding.scss` and `ifl_branding.test.tsx`). |
+| `webapp/channels/src/components/header_footer_route/ifl_footer.tsx:1` | New file: the league footer for the signed-out pages. |
 | `webapp/channels/src/components/login/ifl_signin.ts:1` | New file: iflgm.com sign-in strings and redirect rules. |
 | `server/channels/api4/ifl.go:1` | New file: the panel session, email sync and panel WebSocket routes. |
 | `server/channels/app/ifl_app.go:1` | New file: app-level glue for `server/channels/app/ifl`. |
 
-New, IFL-only code: `server/channels/app/ifl/` (config, panel token, site client, actor, profile, tests), `server/channels/api4/ifl.go`, `server/channels/api4/ifl_test.go`, `server/channels/api4/ifl_websocket_test.go`, `server/channels/app/ifl_app.go`, `server/build/Dockerfile.ifl`, `webapp/channels/src/components/login/ifl_signin.ts`, `.github/workflows/ifl-*.yml`, `tools/slack-migration/` (Slack migration tools, Python; not part of the server build), this file.
+New, IFL-only code: `server/channels/app/ifl/` (config, panel token, site client, actor, profile, tests), `server/channels/api4/ifl.go`, `server/channels/api4/ifl_test.go`, `server/channels/api4/ifl_websocket_test.go`, `server/channels/app/ifl_app.go`, `server/build/Dockerfile.ifl`, `webapp/channels/src/components/login/ifl_signin.ts`, `webapp/channels/src/components/header_footer_route/ifl_branding.tsx` (with its `.scss` and test), `webapp/channels/src/components/header_footer_route/ifl_footer.tsx`, `webapp/channels/src/images/ifl_chat_icon_64.png` and `_128.png`, `.github/workflows/ifl-*.yml`, `tools/slack-migration/` (Slack migration tools, Python; not part of the server build), this file.
 
 ### The `en.json` exception
 
 `server/i18n/en.json` carries nine `ifl.*` message strings (`ifl.email.*`, `ifl.panel.*` and `ifl.suspension.*`). It is the one upstream edit with no `// IFL:` marker because JSON has no comments. When merging, keep all `ifl.*` entries; merge conflicts here are usually adjacent-line additions, so keep both sides.
 
 `webapp/channels/src/i18n/en.json` drops `login.gitlab` (the iflgm.com option no longer uses it, and upstream's `i18n-extract:check` fails on unused strings). Keep it out when merging; if an upstream change uses it again, run `npm run i18n-extract` in `webapp/channels`.
+
+`webapp/channels/src/i18n/en.json` also drops `login.subtitle` and `signup_user_completed.subtitle` (replaced by the IFL tagline); keep them out when merging, as with `login.gitlab`.
+
+The PNGs in `webapp/channels/src/images/favicon/` are replaced with IFL Chat icons generated from `branding/ifl-chat-icon-1024.png` (same file names and sizes, so the signed-in app's favicon swaps and the PWA manifest keep working; binary files carry no marker). On a merge conflict keep ours; if upstream adds a size, generate it from the master icon with rounded corners (about 22% radius) for `favicon-*`, a red (#D24B4E) dot for `favicon-mentions-*`, a slate (#34465F) dot for `favicon-unread-*`, and full-bleed squares for `apple-touch-icon-*` and `android-chrome-*`.
+
+The header_footer_template snapshots (`webapp/channels/src/components/header_footer_template/__snapshots__/`) record the league footer; regenerate with jest `-u` on a conflict.
 
 Likewise `webapp/channels/src/components/signup/__snapshots__/signup.test.tsx.snap` records the iflgm.com GitLab option (no icon, "Sign in with iflgm.com"); on a conflict, regenerate it with jest `-u` and check that only that changed.
 

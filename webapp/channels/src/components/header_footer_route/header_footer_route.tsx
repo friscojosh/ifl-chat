@@ -11,7 +11,7 @@ import type {HeaderProps} from './header';
 import './header_footer_route.scss';
 
 const Header = React.lazy(() => import('./header'));
-const Footer = React.lazy(() => import('./footer'));
+const Footer = React.lazy(() => import('./ifl_footer')); // IFL: league footer instead of ./footer
 
 export type CustomizeHeaderType = (props: HeaderProps) => void;
 
