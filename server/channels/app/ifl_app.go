@@ -40,6 +40,8 @@ func (a *App) IFLProvision(rctx request.CTX, user *model.User) {
 	if appErr := a.AddUserToTeamByTeamId(rctx, team.Id, user); appErr != nil {
 		rctx.Logger().Warn("IFL: add to team", mlog.String("user_id", user.Id), mlog.Err(appErr))
 	}
+	// IFL Chat apps plan: a new GM's team chip without waiting for the next check.
+	a.iflNoteSignIn(user.Id)
 }
 
 // IFLReactivateIfNeeded reactivates a deactivated GitLab account at sign-in:
