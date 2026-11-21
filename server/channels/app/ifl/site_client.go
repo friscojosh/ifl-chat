@@ -85,3 +85,78 @@ func (s *SiteClient) Suspension(ctx context.Context, siteID string, action, acto
 	}
 	return &r, nil
 }
+
+// ErrNoTeamLogo: the site has no logo for this team and size (or the
+// request was not a team key and size the site serves).
+var ErrNoTeamLogo = errors.New("iflgm.com has no logo for this team")
+
+var errSiteNotFound = errors.New("iflgm.com answered 404")
+
+const (
+	maxBadgeBody = 256 << 10
+	maxLogoBody  = 256 << 10
+)
+
+var pngMagic = []byte("\x89PNG\r\n\x1a\n")
+
+// get is a GET on the site's private listener with the internal secret.
+func (s *SiteClient) get(ctx context.Context, path string, limit int) ([]byte, error) {
+	if !s.cfg.CallbackEnabled() {
+		return nil, fmt.Errorf("site callback is not configured")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.cfg.SiteInternalURL+path, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("X-IFL-Chat-Secret", s.cfg.InternalSecret)
+	resp, err := s.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("iflgm.com unreachable: %w", err)
+	}
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, int64(limit)+1))
+	if err != nil {
+		return nil, fmt.Errorf("iflgm.com answer unreadable: %w", err)
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, errSiteNotFound
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("iflgm.com answered %s", resp.Status)
+	}
+	if len(raw) > limit {
+		return nil, fmt.Errorf("iflgm.com answer larger than %d bytes", limit)
+	}
+	return raw, nil
+}
+
+// TeamBadges is every chat-eligible GM's team (IFL Chat apps plan).
+func (s *SiteClient) TeamBadges(ctx context.Context) (*SiteBadges, error) {
+	raw, err := s.get(ctx, "/internal/chat/team-badges", maxBadgeBody)
+	if err != nil {
+		return nil, err
+	}
+	var b SiteBadges
+	if err := json.Unmarshal(raw, &b); err != nil {
+		return nil, fmt.Errorf("iflgm.com sent unreadable team badges: %w", err)
+	}
+	return &b, nil
+}
+
+// TeamLogo is a team's square PNG logo, 64 or 128 px.
+func (s *SiteClient) TeamLogo(ctx context.Context, abbr string, size int) ([]byte, error) {
+	if !ValidBadgeAbbr(abbr) || (size != 64 && size != 128) {
+		return nil, ErrNoTeamLogo
+	}
+	raw, err := s.get(ctx, fmt.Sprintf("/internal/chat/team-logos/%s.png?s=%d", abbr, size), maxLogoBody)
+	if errors.Is(err, errSiteNotFound) {
+		return nil, ErrNoTeamLogo
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !bytes.HasPrefix(raw, pngMagic) {
+		return nil, fmt.Errorf("iflgm.com sent a team logo that is not a PNG")
+	}
+	return raw, nil
+}

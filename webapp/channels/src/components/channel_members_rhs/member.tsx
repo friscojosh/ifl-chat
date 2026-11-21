@@ -14,6 +14,7 @@ import {isGuest} from 'mattermost-redux/utils/user_utils';
 
 import ChannelMembersDropdown from 'components/channel_members_dropdown';
 import CustomStatusEmoji from 'components/custom_status/custom_status_emoji';
+import IflTeamChip from 'components/ifl/team_badges/ifl_team_chip'; // IFL: team chip (IFL Chat apps plan)
 import ProfilePicture from 'components/profile_picture';
 import ProfilePopover from 'components/profile_popover';
 import SharedChannelIndicator from 'components/shared_channel_indicator';
@@ -70,6 +71,10 @@ const Member = ({channel, member, index, totalUsers, editing, actions}: Props) =
                 >
                     <span className='channel-members-rhs__display-name'>
                         {member.displayName}
+                        <IflTeamChip
+                            userId={member.user.id}
+                            size={20}
+                        />{/* IFL: team chip (IFL Chat apps plan) */}
                         {isGuest(member.user.roles) && <GuestTag/>}
                         {member.user.remote_id &&
                         (

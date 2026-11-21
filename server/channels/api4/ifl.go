@@ -4,6 +4,9 @@ package api4
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
+
+	"github.com/gorilla/mux"
 
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/shared/mlog"
@@ -14,6 +17,9 @@ func (api *API) InitIFL() {
 	api.BaseRoutes.APIRoot.Handle("/ifl/session", api.APIHandler(iflPanelSession)).Methods(http.MethodPost)
 	api.BaseRoutes.APIRoot.Handle("/ifl/users/{user_id:[A-Za-z0-9]+}/email", api.APISessionRequired(iflUpdateEmail)).Methods(http.MethodPut)
 	api.BaseRoutes.APIRoot.Handle("/ifl/websocket", api.APIHandlerTrustRequester(iflPanelWebSocket)).Methods(http.MethodGet)
+	api.BaseRoutes.APIRoot.Handle("/ifl/team_badges", api.APISessionRequired(iflGetTeamBadges)).Methods(http.MethodGet)
+	api.BaseRoutes.APIRoot.Handle("/ifl/team_badges/refresh", api.APISessionRequired(iflRefreshTeamBadges)).Methods(http.MethodPost)
+	api.BaseRoutes.APIRoot.Handle("/ifl/team_badges/logos/{abbr:[A-Za-z0-9]+}.png", api.APIHandler(iflGetTeamLogo)).Methods(http.MethodGet)
 }
 
 // iflUpdateEmail sets a site-linked member's email (system admin only): the
@@ -117,4 +123,87 @@ func iflMirrorFromAPI(c *Context, target *model.User, active, permanentDelete bo
 func iflPanelWebSocket(c *Context, w http.ResponseWriter, r *http.Request) {
 	c.AppContext = c.AppContext.WithSession(&model.Session{})
 	connectWebSocket(c, w, r)
+}
+
+// iflGetTeamBadges is every GM's team chip (IFL Chat apps plan): teams by
+// abbreviation and chat user id to abbreviation. Any signed-in member. The
+// ETag is the version, so a client's refetch after the event is usually 304.
+func iflGetTeamBadges(c *Context, w http.ResponseWriter, r *http.Request) {
+	badges := c.App.IFLTeamBadges(c.AppContext)
+	w.Header().Set("Cache-Control", "private, max-age=60")
+	w.Header().Set(model.HeaderEtagServer, `"`+badges.Version+`"`)
+	if iflEtagMatches(r.Header.Get(model.HeaderEtagClient), badges.Version) {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	if err := json.NewEncoder(w).Encode(badges); err != nil {
+		c.Logger.Warn("Error while writing response", mlog.Err(err))
+	}
+}
+
+// iflEtagMatches: does If-None-Match name this version? Clients send it
+// quoted (RFC 9110, as the ETag is sent) or bare (the iflgm.com panel and
+// older clients), optionally weak (W/), possibly as a comma-separated list.
+func iflEtagMatches(ifNoneMatch, version string) bool {
+	if version == "" {
+		return false
+	}
+	for _, tag := range strings.Split(ifNoneMatch, ",") {
+		tag = strings.TrimSpace(tag)
+		if tag == "*" {
+			return true
+		}
+		tag = strings.TrimPrefix(tag, "W/")
+		if len(tag) >= 2 && strings.HasPrefix(tag, `"`) && strings.HasSuffix(tag, `"`) {
+			tag = tag[1 : len(tag)-1]
+		}
+		if tag == version {
+			return true
+		}
+	}
+	return false
+}
+
+// iflRefreshTeamBadges re-reads the teams now (system admin: the site's
+// relay after a member change, or `flask chat refresh-badges`).
+func iflRefreshTeamBadges(c *Context, w http.ResponseWriter, r *http.Request) {
+	if !c.App.SessionHasPermissionTo(*c.AppContext.Session(), model.PermissionManageSystem) {
+		c.SetPermissionError(model.PermissionManageSystem)
+		return
+	}
+	badges, changed, appErr := c.App.IFLRefreshTeamBadges(c.AppContext)
+	if appErr != nil {
+		c.Err = appErr
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	if err := json.NewEncoder(w).Encode(map[string]any{"version": badges.Version, "changed": changed}); err != nil {
+		c.Logger.Warn("Error while writing response", mlog.Err(err))
+	}
+}
+
+// iflGetTeamLogo serves a team logo without a session: team logos are not
+// private, and image loaders on every client need no auth plumbing. The v
+// parameter (the logo's revision) makes the URL change when the logo does.
+func iflGetTeamLogo(c *Context, w http.ResponseWriter, r *http.Request) {
+	abbr := mux.Vars(r)["abbr"]
+	if !ifl.ValidBadgeAbbr(abbr) {
+		c.Err = model.NewAppError("iflGetTeamLogo", "ifl.team_badges.no_logo", nil, "", http.StatusNotFound)
+		return
+	}
+	size := 128
+	if r.URL.Query().Get("s") == "64" {
+		size = 64
+	}
+	png, appErr := c.App.IFLTeamLogo(c.AppContext, abbr, size)
+	if appErr != nil {
+		c.Err = appErr
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	if _, err := w.Write(png); err != nil {
+		c.Logger.Warn("Error while writing response", mlog.Err(err))
+	}
 }

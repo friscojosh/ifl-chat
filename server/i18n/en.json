@@ -4366,7 +4366,7 @@
   },
   {
     "id": "api.push_notification.id_loaded.default_message",
-    "translation": "You've received a new message.",
+    "translation": "New message in IFL Chat",
     "description": "Generic mobile push notification body used when message content is withheld (ID-only push mode); the client fetches the real content separately."
   },
   {
@@ -14475,6 +14475,16 @@
     "id": "ifl.suspension.site_refused",
     "translation": "The account was not changed because iflgm.com did not confirm it: {{.Reason}}",
     "description": "Error returned when the iflgm.com suspension callback fails, refuses, or is not configured."
+  },
+  {
+    "id": "ifl.team_badges.no_logo",
+    "translation": "There is no logo for this team.",
+    "description": "Error returned when a client asks for the logo of a team that is not in the league's team badges."
+  },
+  {
+    "id": "ifl.team_badges.unavailable",
+    "translation": "Team badges could not be loaded from iflgm.com.",
+    "description": "Error returned when the server cannot reach iflgm.com to refresh team badges or fetch a team logo."
   },
   {
     "id": "import_process.worker.do_job.file_exists",
