@@ -5,10 +5,13 @@ them. Nothing here prints a token, and files that hold emails are written
 with mode 600.
 """
 import csv
+import hashlib
+import io
 import json
 import os
 import re
 import stat
+import zipfile
 
 PLACEHOLDER_DOMAIN = 'import.invalid'
 TEAM = 'ifl'
@@ -142,7 +145,7 @@ def load_chat_channels(path):
     return names
 
 
-def resolve_identities(rows, chat_users):
+def resolve_identities(rows, chat_users, prior_people=None):
     """Final chat identity for every human Slack user in identity_map.csv.
 
     Returns {slack_id: {...}}. A row is linked to a site account only when
@@ -152,7 +155,15 @@ def resolve_identities(rows, chat_users):
     their Slack username unless `mm_username_override` is set; unlinked people
     get a placeholder email and are imported deactivated. So does a confirmed
     row whose site_member is `no:unverified_email` (flagged `unverified_email`).
+
+    Re-import (prior_people = {slack_id: {'username', 'email'}} from the first
+    run's prepared users.json): a person the first run imported keeps the
+    username it gave them, so mention text in old messages does not change.
+    Their chat account must still exist under that username; a linked row must
+    find it linked (gitlab) to the same site user. They are `existing` (and
+    `prior`), so rewrite_import leaves the account alone.
     """
+    prior_people = prior_people or {}
     chat_by_name = {u['username'].lower(): u for u in chat_users}
     chat_by_email = {(u.get('email') or '').lower(): u for u in chat_users if u.get('email')}
     out, errors, seen, seen_auth = {}, [], {}, {}
@@ -176,7 +187,32 @@ def resolve_identities(rows, chat_users):
         if unverified:
             linked = False
         override = row['mm_username_override'].strip().lower()
-        if linked and row['chat_username']:
+        if sid in prior_people:
+            name = prior_people[sid]['username']
+            acct = chat_by_name.get(name)
+            if acct is None:
+                errors.append(f'{sid}: the first import gave this person chat account {name!r}, '
+                              'which is not in the chat snapshot; resolve it by hand')
+                continue
+            if linked and (acct.get('auth_service') != 'gitlab'
+                           or str(acct.get('auth_data') or '') != row['site_id'].strip()):
+                errors.append(f'{sid}: confirmed to site user {row["site_id"].strip()}, but chat account '
+                              f'{name!r} from the first import is not linked to it; link it first '
+                              '(flask chat link-slack-user), retake the snapshot, then re-run')
+                continue
+            if linked and row['chat_username'] and row['chat_username'].lower() != name:
+                errors.append(f'{sid}: identity row names chat account {row["chat_username"]!r}, but the '
+                              f'first import used {name!r}; mentions would change; resolve it by hand')
+                continue
+            ident = {
+                'username': name,
+                'email': (acct.get('email') or prior_people[sid]['email']).lower(),
+                'auth_data': row['site_id'].strip() if linked else None,
+                'active': row['site_member'] == 'yes',
+                'existing': True,
+                'prior': True,
+            }
+        elif linked and row['chat_username']:
             ident = {
                 'username': row['chat_username'].lower(),
                 'email': row['chat_email'].lower(),
@@ -204,7 +240,7 @@ def resolve_identities(rows, chat_users):
         if unverified:
             ident['unverified_email'] = True
         name = ident['username']
-        if ident['existing']:
+        if ident['existing'] and not ident.get('prior'):
             # The import re-links an account whose auth data differs, and
             # revokes its sessions, so an existing account must already be
             # this site user's gitlab account.
@@ -240,3 +276,119 @@ def resolve_identities(rows, chat_users):
     if errors:
         raise MigrationError('identity problems:\n  ' + '\n  '.join(errors))
     return out
+
+
+# ---------------------------------------------------------------- re-import
+# A second Slack export imported on top of the first (README "Second import").
+# The first run's work directory is the authority: its channel_map.csv,
+# prepared.zip (users.json: the names it gave every person and bot) and
+# import.zip (exactly what chat received).
+
+PRIOR_FILES = ('channel_map.csv', 'prepared.zip', 'import.zip')
+
+
+def prior_paths(prior_dir):
+    paths = {n: os.path.join(prior_dir, n) for n in PRIOR_FILES}
+    missing = [n for n, p in paths.items() if not os.path.isfile(p)]
+    if missing:
+        raise MigrationError(f'{prior_dir}: the first run\'s {", ".join(missing)} not found')
+    return paths
+
+
+def load_prior_users(prepared_zip):
+    """(people, bots) from the first run's prepared users.json:
+    people = {slack_id: {'username', 'email'}}, bots = {slack/bot id: username}."""
+    with zipfile.ZipFile(prepared_zip) as z:
+        users = json.loads(z.read('users.json'))
+    people, bots = {}, {}
+    for u in users:
+        if u.get('is_bot'):
+            bots[u['id']] = u['name']
+        else:
+            people[u['id']] = {'username': u['name'].lower(),
+                               'email': ((u.get('profile') or {}).get('email') or '').lower()}
+    return people, bots
+
+
+def iter_import_lines(path):
+    """Lines of a Mattermost import: an import zip (its import.jsonl) or a JSONL file."""
+    if zipfile.is_zipfile(path):
+        with zipfile.ZipFile(path) as z, z.open('import.jsonl') as raw:
+            for ln in io.TextIOWrapper(raw, encoding='utf-8'):
+                if ln.strip():
+                    yield json.loads(ln)
+    else:
+        with open(path, encoding='utf-8') as f:
+            for ln in f:
+                if ln.strip():
+                    yield json.loads(ln)
+
+
+def _digest(*parts):
+    return hashlib.blake2b(json.dumps(parts, ensure_ascii=False).encode('utf-8'),
+                           digest_size=16).digest()
+
+
+def post_key(channel, create_at, message):
+    """What the import matches a post by (import_functions.go importMultiplePostLines:
+    GetPostsCreatedAt(channel, create_at), then the exact message)."""
+    return _digest('post', channel, create_at, message or '')
+
+
+def reply_key(root_key, root_create_at, create_at, message):
+    """Replies match by create_at (raised to the root's, as importReplies does),
+    exact message and the same root post."""
+    return _digest('reply', root_key.hex(), max(create_at or 0, root_create_at or 0), message or '')
+
+
+def reaction_set(item):
+    return frozenset((r.get('user'), r.get('emoji_name')) for r in item.get('reactions') or [])
+
+
+def attachment_names(item):
+    return tuple(sorted(os.path.basename(a.get('path') or '') for a in item.get('attachments') or []))
+
+
+def iter_items(post):
+    """(key, item, is_reply) for a post line's post and each reply."""
+    root = post_key(post['channel'], post.get('create_at'), post.get('message'))
+    yield root, post, False
+    for r in post.get('replies') or []:
+        yield reply_key(root, post.get('create_at'), r.get('create_at'), r.get('message')), r, True
+
+
+class PriorImport:
+    """Index of what the first import put in chat: channel names, the latest
+    create_at per channel, and for every post and reply its match key with its
+    reactions and attachment names."""
+
+    def __init__(self):
+        self.channels = set()
+        self.cutoff = {}
+        self.items = {}
+
+    @classmethod
+    def load(cls, path):
+        self = cls()
+        for line in iter_import_lines(path):
+            if line.get('type') == 'channel':
+                self.channels.add(line['channel']['name'])
+            elif line.get('type') == 'post':
+                self.add_post(line['post'])
+        return self
+
+    def add_post(self, p):
+        ch = p['channel']
+        latest = max([p.get('create_at') or 0] + [r.get('create_at') or 0 for r in p.get('replies') or []])
+        self.cutoff[ch] = max(self.cutoff.get(ch, latest), latest)
+        for key, item, _ in iter_items(p):
+            self.items[key] = (reaction_set(item) or None, attachment_names(item) or None)
+
+    def has(self, key):
+        return key in self.items
+
+    def reactions(self, key):
+        return (self.items.get(key) or (None, None))[0] or frozenset()
+
+    def attachments(self, key):
+        return (self.items.get(key) or (None, None))[1] or ()

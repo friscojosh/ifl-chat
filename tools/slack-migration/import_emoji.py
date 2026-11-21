@@ -25,6 +25,9 @@
 9. A rerun compares an existing chat emoji's stored image with the prepared
    image: equal means "unchanged"; different means "failed" (never
    overwritten).
+10. Re-import (--prior-map FIRST_RUN/emoji_map.csv): every Slack name the
+   first run named keeps that chat name, and new emoji never take one of
+   them, so a new emoji cannot shift the `_2`, `_3` numbering of old ones.
 Tokens are read from mode-600 files, never from the command line. The Slack
 token is sent only to https://slack.com/api/emoji.list; emoji images are
 fetched from *.slack-edge.com without it; the bot token only to the two IFL
@@ -41,7 +44,7 @@ import sys
 from urllib.parse import urlsplit
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # run with python -I
-from common import MigrationError, load_env_file, write_csv  # noqa: E402
+from common import MigrationError, load_env_file, read_csv, write_csv  # noqa: E402
 
 MAX_BYTES = 512 * 1024
 MAX_SIDE = 128
@@ -93,10 +96,20 @@ def resolve(raw, system):
     return out
 
 
-def assign_names(entries, system):
-    """Set entry['mm_name'] and entry['renamed'] deterministically."""
-    used = set()
+def assign_names(entries, system, prior=None):
+    """Set entry['mm_name'] and entry['renamed'] deterministically. prior
+    (re-import): {slack_name: mm_name} from the first run's map; those names
+    are kept and reserved."""
+    prior = prior or {}
+    used = set(prior.values())
     for e in entries:
+        if e['kind'] in ('alias-to-system', 'failed') or e['slack_name'] not in prior:
+            continue
+        e['mm_name'] = prior[e['slack_name']]
+        e['renamed'] = 'yes' if e['mm_name'] != e['slack_name'] else 'no'
+    for e in entries:
+        if e.get('mm_name') and e['kind'] not in ('alias-to-system', 'failed'):
+            continue
         if e['kind'] == 'alias-to-system':
             e['mm_name'], e['renamed'] = e['target'], 'yes'
             continue
@@ -309,10 +322,16 @@ def _import_one(e, slack, chat, existing, creator, dry_run, images):
     e['status'] = 'imported'
 
 
-def run(slack, chat, system, dry_run=False):
+def load_prior_names(path):
+    """{slack_name: mm_name} for the custom emoji and aliases a first run named."""
+    return {r['slack_name']: r['mm_name'] for r in read_csv(path)
+            if r['mm_name'] and r['kind'] in ('custom', 'alias')}
+
+
+def run(slack, chat, system, dry_run=False, prior=None):
     """One emoji's failure (network, bad image, 429/5xx) becomes a `failed`
     row; it never stops the others."""
-    entries = assign_names(resolve(slack.emoji_list(), system), system)
+    entries = assign_names(resolve(slack.emoji_list(), system), system, prior)
     existing = chat.all_emoji() if chat else {}
     creator = chat.me()['id'] if chat and not dry_run else ''
     images = {}
@@ -366,11 +385,13 @@ def main(argv=None):
     ap.add_argument('--system-emoji', required=True, help='server/public/model/emoji_data.go')
     ap.add_argument('--out-dir', required=True)
     ap.add_argument('--dry-run', action='store_true')
+    ap.add_argument('--prior-map', help="re-import: the first run's emoji_map.csv (its names are kept)")
     a = ap.parse_args(argv)
     try:
+        prior = load_prior_names(a.prior_map) if a.prior_map else None
         slack = SlackClient(load_env_file(a.slack_env, 'SLACK_API_TOKEN'))
         chat = ChatClient(a.chat_url, load_env_file(a.chat_env, 'IFL_BOT_TOKEN'))
-        entries = run(slack, chat, load_system_emoji(a.system_emoji), a.dry_run)
+        entries = run(slack, chat, load_system_emoji(a.system_emoji), a.dry_run, prior)
     except MigrationError as e:
         print(f'error: {e}', file=sys.stderr)
         return 2
