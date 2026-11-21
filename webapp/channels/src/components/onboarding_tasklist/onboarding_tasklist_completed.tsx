@@ -14,6 +14,7 @@ import {getPrevTrialLicense} from 'mattermost-redux/actions/admin';
 import {getLicense} from 'mattermost-redux/selectors/entities/general';
 
 import ExternalLink from 'components/external_link';
+import {IFL_APP_DOWNLOAD_PROMPTS} from 'components/ifl/ifl_features'; // IFL: no app download prompt
 import StartTrialBtn from 'components/learn_more_trial_modal/start_trial_btn';
 
 import completedImg from 'images/completed.svg';
@@ -215,7 +216,7 @@ const Completed = (props: Props): JSX.Element => {
                             />
                         </button>
                     )}
-                    {!isDesktopApp() && (
+                    {IFL_APP_DOWNLOAD_PROMPTS && !isDesktopApp() && ( // IFL: no "download our apps" link to mattermost.com
                         <div className='download-apps'>
                             <span>
                                 <FormattedMessage

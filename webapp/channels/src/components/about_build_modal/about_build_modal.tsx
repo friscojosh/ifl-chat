@@ -12,8 +12,10 @@ import {Client4} from 'mattermost-redux/client';
 
 import CopyButton from 'components/copy_button';
 import ExternalLink from 'components/external_link';
+import {IFL_APP_NAME, IFL_TAGLINE} from 'components/header_footer_route/ifl_branding'; // IFL: IFL Chat name and tagline
 import Nbsp from 'components/html_entities/nbsp';
-import MattermostLogo from 'components/widgets/icons/mattermost_logo';
+import {IflAboutCredit, IflAboutIcon, IflSiteLink} from 'components/ifl/ifl_about'; // IFL: replaces the MattermostLogo import
+import {IFL_MATTERMOST_LINKS} from 'components/ifl/ifl_features'; // IFL
 
 import {AboutLinks} from 'utils/constants';
 import {getSkuDisplayName} from 'utils/subscription';
@@ -183,6 +185,15 @@ export default function AboutBuildModal(props: Props) {
         }
     }
 
+    // IFL: IFL Chat's tagline, and a credit to the Mattermost edition with a link to the source, in place of Mattermost's tagline and links
+    subTitle = <>{IFL_TAGLINE}</>;
+    learnMore = (
+        <IflAboutCredit
+            edition={title}
+            buildHash={config.BuildHash}
+        />
+    );
+
     const termsOfService = (
         <ExternalLink
             location='about_build_modal'
@@ -327,12 +338,12 @@ export default function AboutBuildModal(props: Props) {
             <Modal.Body>
                 <div className='about-modal__content'>
                     <div className='about-modal__logo'>
-                        <MattermostLogo/>
+                        <IflAboutIcon/>{/* IFL: was MattermostLogo */}
                     </div>
                     <div>
                         <h3 className='about-modal__title'>
                             <strong>
-                                {'Mattermost'} {title}
+                                {IFL_APP_NAME /* IFL: was 'Mattermost' {title}; the edition is in the credit below */}
                             </strong>
                         </h3>
                         <p className='about-modal__subtitle pb-2'>
@@ -381,9 +392,7 @@ export default function AboutBuildModal(props: Props) {
                             />
                         </div>
                         <div className='about-modal__links'>
-                            {termsOfService}
-                            {' - '}
-                            {privacyPolicy}
+                            {IFL_MATTERMOST_LINKS ? <>{termsOfService}{' - '}{privacyPolicy}</> : <IflSiteLink/> /* IFL: iflgm.com in place of Mattermost's terms and privacy policy */}
                         </div>
                     </div>
                 </div>

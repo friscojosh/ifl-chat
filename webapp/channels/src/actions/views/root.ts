@@ -5,6 +5,8 @@ import {Client4} from 'mattermost-redux/client';
 
 import {getCurrentLocale, getTranslations} from 'selectors/i18n';
 
+import {IFL_EN_STRINGS, isEnglish} from 'components/ifl/ifl_strings'; // IFL: league wording in English
+
 import {ActionTypes} from 'utils/constants';
 
 import type {ActionFuncAsync, ThunkActionFunc} from 'types/store';
@@ -54,6 +56,9 @@ export function loadTranslations(locale: string, url: string): ActionFuncAsync {
             } catch (error) {
                 console.error(error); //eslint-disable-line no-console
             }
+        }
+        if (isEnglish(locale)) { // IFL: IFL Chat wording wins over the defaultMessages (components/ifl/ifl_strings.ts)
+            Object.assign(translations, IFL_EN_STRINGS);
         }
         dispatch({
             type: ActionTypes.RECEIVED_TRANSLATIONS,

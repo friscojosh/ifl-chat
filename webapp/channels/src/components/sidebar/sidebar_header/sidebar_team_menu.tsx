@@ -32,6 +32,7 @@ import {getMainMenuPluginComponents} from 'selectors/plugins';
 
 import AddGroupsToTeamModal from 'components/add_groups_to_team_modal';
 import useGetUsageDeltas from 'components/common/hooks/useGetUsageDeltas';
+import {IFL_MATTERMOST_LINKS, IFL_TEAM_INVITES} from 'components/ifl/ifl_features'; // IFL: no team invites or Mattermost links
 import InvitationModal from 'components/invitation_modal';
 import LeaveTeamModal from 'components/leave_team_modal';
 import * as Menu from 'components/menu';
@@ -88,7 +89,7 @@ export default function SidebarTeamMenu(props: Props) {
                 id: 'sidebarTeamMenu',
             }}
         >
-            {((isGuestAccessEnabled && havePermissionToInviteGuest) || havePermissionToAddUserToTeam) && (
+            {IFL_TEAM_INVITES && ((isGuestAccessEnabled && havePermissionToInviteGuest) || havePermissionToAddUserToTeam) && ( // IFL: no "Invite people" item
                 <InvitePeopleMenuItem/>
             )}
             {isTeamGroupConstrained && isLicensedForLDAPGroups && havePermissionToManageTeam && (
@@ -115,8 +116,8 @@ export default function SidebarTeamMenu(props: Props) {
                     isCloud={isCloud}
                 />
             )}
-            <Menu.Separator/>
-            <LearnAboutTeamsMenuItem/>
+            {IFL_MATTERMOST_LINKS && <Menu.Separator/> /* IFL: no "Learn about teams" item (a Mattermost Academy link) */}
+            {IFL_MATTERMOST_LINKS && <LearnAboutTeamsMenuItem/>}
             <PluginMenuItems/>
         </Menu.Container>
     );

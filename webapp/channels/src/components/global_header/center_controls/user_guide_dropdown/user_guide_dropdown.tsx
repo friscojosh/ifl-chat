@@ -8,6 +8,8 @@ import type {WrappedComponentProps} from 'react-intl';
 import {WithTooltip} from '@mattermost/shared/components/tooltip';
 
 import HeaderIconButton from 'components/global_header/header_icon_button';
+import {IFL_SITE_LABEL, IFL_SITE_URL} from 'components/header_footer_route/ifl_branding'; // IFL: iflgm.com link
+import {IFL_MATTERMOST_LINKS} from 'components/ifl/ifl_features'; // IFL: no Mattermost documentation link
 import KeyboardShortcutsModal from 'components/keyboard_shortcuts/keyboard_shortcuts_modal/keyboard_shortcuts_modal';
 import Menu from 'components/widgets/menu/menu';
 import MenuWrapper from 'components/widgets/menu/menu_wrapper';
@@ -84,12 +86,21 @@ class UserGuideDropdown extends React.PureComponent<Props, State> {
 
         return (
             <Menu.Group>
+                {/* IFL: a link to iflgm.com in place of Mattermost's documentation (the training, community and report links go with the client config's mattermost.com links) */}
                 <Menu.ItemExternalLink
-                    id='mattermostUserGuideLink'
-                    iconClassName='icon-file-text-outline'
-                    url={getMattermostDocumentationURL(this.props.siteURL)}
-                    text={intl.formatMessage({id: 'userGuideHelp.mattermostUserGuide', defaultMessage: 'Mattermost documentation'})}
+                    id='iflSiteLink'
+                    iconClassName='icon-globe'
+                    url={IFL_SITE_URL}
+                    text={IFL_SITE_LABEL}
                 />
+                {IFL_MATTERMOST_LINKS && (
+                    <Menu.ItemExternalLink
+                        id='mattermostUserGuideLink'
+                        iconClassName='icon-file-text-outline'
+                        url={getMattermostDocumentationURL(this.props.siteURL)}
+                        text={intl.formatMessage({id: 'userGuideHelp.mattermostUserGuide', defaultMessage: 'Mattermost documentation'})}
+                    />
+                )}
                 {this.props.helpLink && (
                     <Menu.ItemExternalLink
                         id='trainingResourcesLink'

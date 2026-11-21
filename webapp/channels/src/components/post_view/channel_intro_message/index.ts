@@ -35,7 +35,7 @@ function mapStateToProps(state: GlobalState) {
     const currentUser = getCurrentUser(state);
     const creator = channel ? getUser(state, channel.creator_id) : undefined;
 
-    const usersLimit = 10;
+    const usersLimit = 0; // IFL: was 10. Members are provisioned by iflgm.com, so the intro never offers to invite people to the team
 
     const stats = getTotalUsersStatsSelector(state) || {total_users_count: 0};
 

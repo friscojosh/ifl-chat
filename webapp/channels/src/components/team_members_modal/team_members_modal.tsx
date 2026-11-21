@@ -12,6 +12,7 @@ import Permissions from 'mattermost-redux/constants/permissions';
 
 import AlertBanner from 'components/alert_banner';
 import useAccessControlAttributes, {EntityType} from 'components/common/hooks/useAccessControlAttributes';
+import {IFL_TEAM_INVITES} from 'components/ifl/ifl_features'; // IFL: no team invites
 import InvitationModal from 'components/invitation_modal';
 import MemberListTeam from 'components/member_list_team';
 import TeamPermissionGate from 'components/permissions_gates/team_permission_gate';
@@ -175,7 +176,7 @@ export default class TeamMembersModal extends React.PureComponent<Props, State> 
                     />
                 }
                 ariaLabelledby='teamMemberModalLabel'
-                headerButton={
+                headerButton={IFL_TEAM_INVITES && ( // IFL: no "Invite People" button
                     <TeamPermissionGate
                         teamId={this.props.currentTeam?.id}
                         permissions={[Permissions.ADD_USER_TO_TEAM, Permissions.INVITE_GUEST]}
@@ -193,7 +194,7 @@ export default class TeamMembersModal extends React.PureComponent<Props, State> 
                             />
                         </Button>
                     </TeamPermissionGate>
-                }
+                )}
                 enforceFocus={false}
                 modalLocation='top'
                 bodyPadding={false}

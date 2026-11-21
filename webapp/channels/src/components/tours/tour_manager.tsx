@@ -11,6 +11,7 @@ import {savePreferences as storeSavePreferences} from 'mattermost-redux/actions/
 import {getCurrentChannelId, getCurrentUserId} from 'mattermost-redux/selectors/entities/common';
 import {getInt} from 'mattermost-redux/selectors/entities/preferences';
 
+import {IFL_TEAM_INVITES} from 'components/ifl/ifl_features'; // IFL: no team invites
 import {
     getLastStep,
     isKeyPressed,
@@ -25,8 +26,10 @@ import type {
 import {
     AutoTourStatus,
     FINISHED,
+    OnboardingTourSteps, // IFL
     SKIPPED,
     TTNameMapToATStatusKey,
+    TutorialTourName, // IFL
 } from './constant';
 
 export const useTourTipManager = (tourCategory: string): ChannelsTourTipManager => {
@@ -98,10 +101,13 @@ export const useTourTipManager = (tourCategory: string): ChannelsTourTipManager 
             stepValue = nextStep;
             type = 'jump';
         }
+        if (!IFL_TEAM_INVITES && tourCategory === TutorialTourName.ONBOARDING_TUTORIAL_STEP && stepValue === OnboardingTourSteps.INVITE_PEOPLE) { // IFL: no "Invite people" item to point at, so step over it
+            stepValue += type === 'prev' ? -1 : 1;
+        }
         handleHide();
         handleSaveDataAndTrackEvent(stepValue, type);
         handleActions(stepValue, currentStep);
-    }, [currentStep, handleHide, handleSaveDataAndTrackEvent, handleActions]);
+    }, [currentStep, handleHide, handleSaveDataAndTrackEvent, handleActions, tourCategory]); // IFL: tourCategory
 
     const handleDismiss = useCallback((e: React.MouseEvent): void => {
         handleEventPropagationAndDefault(e);

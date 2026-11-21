@@ -44,7 +44,8 @@ describe('ProductBranding', () => {
         jest.restoreAllMocks();
     });
 
-    test('should render TEAM EDITION for unlicensed users', () => {
+    // IFL: the free editions show the IFL Chat icon and name, with no edition badge
+    test('should render IFL Chat and no TEAM EDITION badge for unlicensed users', () => {
         const state = {
             entities: {
                 general: {
@@ -58,10 +59,11 @@ describe('ProductBranding', () => {
 
         renderWithContext(<ProductBranding/>, state);
 
-        expect(screen.getByText('TEAM EDITION')).toBeInTheDocument();
+        expect(screen.getByTestId('ifl-product-branding')).toHaveTextContent('IFL Chat');
+        expect(screen.queryByText('TEAM EDITION')).not.toBeInTheDocument();
     });
 
-    test('should render ENTRY EDITION for Entry license', () => {
+    test('should render IFL Chat and no ENTRY EDITION badge for Entry license', () => { // IFL
         const state = {
             entities: {
                 general: {
@@ -75,7 +77,8 @@ describe('ProductBranding', () => {
 
         renderWithContext(<ProductBranding/>, state);
 
-        expect(screen.getByText('ENTRY EDITION')).toBeInTheDocument();
+        expect(screen.getByTestId('ifl-product-branding')).toHaveTextContent('IFL Chat');
+        expect(screen.queryByText('ENTRY EDITION')).not.toBeInTheDocument();
     });
 
     test('should not render a license name for a licensed edition that is not Entry', () => {
