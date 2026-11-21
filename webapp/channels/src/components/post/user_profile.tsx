@@ -9,6 +9,7 @@ import type {Post} from '@mattermost/types/posts';
 
 import {ensureString} from 'mattermost-redux/utils/post_utils';
 
+import IflTeamChip from 'components/ifl/team_badges/ifl_team_chip'; // IFL: team chip (IFL Chat apps plan)
 import AiGeneratedIndicator from 'components/post_view/ai_generated_indicator/ai_generated_indicator';
 import PostHeaderCustomStatus from 'components/post_view/post_header_custom_status/post_header_custom_status';
 import UserProfile from 'components/user_profile';
@@ -170,6 +171,7 @@ const PostUserProfile = (props: Props): JSX.Element | null => {
 
     return (<div className='col col__name'>
         {userProfile}
+        {!isSystemMessage && !isFromWebhook(post) && <IflTeamChip userId={post.user_id}/>}{/* IFL: team chip after the name (IFL Chat apps plan) */}
         {colon}
         {botIndicator}
         {customStatus}
