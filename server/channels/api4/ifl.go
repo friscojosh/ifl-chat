@@ -4,6 +4,7 @@ package api4
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 
@@ -130,13 +131,37 @@ func iflPanelWebSocket(c *Context, w http.ResponseWriter, r *http.Request) {
 func iflGetTeamBadges(c *Context, w http.ResponseWriter, r *http.Request) {
 	badges := c.App.IFLTeamBadges(c.AppContext)
 	w.Header().Set("Cache-Control", "private, max-age=60")
-	if c.HandleEtag(badges.Version, "Get IFL Team Badges", w, r) {
+	w.Header().Set(model.HeaderEtagServer, `"`+badges.Version+`"`)
+	if iflEtagMatches(r.Header.Get(model.HeaderEtagClient), badges.Version) {
+		w.WriteHeader(http.StatusNotModified)
 		return
 	}
-	w.Header().Set(model.HeaderEtagServer, badges.Version)
 	if err := json.NewEncoder(w).Encode(badges); err != nil {
 		c.Logger.Warn("Error while writing response", mlog.Err(err))
 	}
+}
+
+// iflEtagMatches: does If-None-Match name this version? Clients send it
+// quoted (RFC 9110, as the ETag is sent) or bare (the iflgm.com panel and
+// older clients), optionally weak (W/), possibly as a comma-separated list.
+func iflEtagMatches(ifNoneMatch, version string) bool {
+	if version == "" {
+		return false
+	}
+	for _, tag := range strings.Split(ifNoneMatch, ",") {
+		tag = strings.TrimSpace(tag)
+		if tag == "*" {
+			return true
+		}
+		tag = strings.TrimPrefix(tag, "W/")
+		if len(tag) >= 2 && strings.HasPrefix(tag, `"`) && strings.HasSuffix(tag, `"`) {
+			tag = tag[1 : len(tag)-1]
+		}
+		if tag == version {
+			return true
+		}
+	}
+	return false
 }
 
 // iflRefreshTeamBadges re-reads the teams now (system admin: the site's

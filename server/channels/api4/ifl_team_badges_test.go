@@ -92,14 +92,26 @@ func TestIFLTeamBadges(t *testing.T) {
 		require.Equal(t, map[string]string{gm.Id: "LAC"}, b.Users)
 		require.Equal(t, "Los Angeles Chargers", b.Teams["LAC"].Name)
 		require.Equal(t, "AFC", b.Teams["LAC"].Conference)
-		require.Equal(t, b.Version, resp.Header.Get(model.HeaderEtagServer))
+		require.Equal(t, `"`+b.Version+`"`, resp.Header.Get(model.HeaderEtagServer))
 		require.Contains(t, resp.Header.Get("Cache-Control"), "private")
 	})
 
-	t.Run("a repeat with the version is 304", func(t *testing.T) {
+	t.Run("a repeat with the version is 304, quoted or not", func(t *testing.T) {
 		b, _ := iflGetBadges(t, th.Client, "")
-		_, resp := iflGetBadges(t, th.Client, b.Version)
-		require.Equal(t, http.StatusNotModified, resp.StatusCode)
+		for _, etag := range []string{
+			b.Version,                      // bare (the iflgm.com panel)
+			`"` + b.Version + `"`,          // quoted, as the ETag is sent
+			`W/"` + b.Version + `"`,        // weak
+			`"other", "` + b.Version + `"`, // a list
+		} {
+			_, resp := iflGetBadges(t, th.Client, etag)
+			require.Equal(t, http.StatusNotModified, resp.StatusCode, etag)
+			require.Equal(t, `"`+b.Version+`"`, resp.Header.Get(model.HeaderEtagServer), etag)
+		}
+		for _, etag := range []string{"other", `"other"`, `W/"` + b.Version} {
+			_, resp := iflGetBadges(t, th.Client, etag)
+			require.Equal(t, http.StatusOK, resp.StatusCode, etag)
+		}
 	})
 
 	t.Run("what a member can edit gives no chip", func(t *testing.T) {
