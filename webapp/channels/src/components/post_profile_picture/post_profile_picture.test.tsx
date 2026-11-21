@@ -59,4 +59,19 @@ describe('components/PostProfilePicture', () => {
 
         expect(screen.getAllByRole('img')).toHaveLength(2);
     });
+
+    // IFL: system messages show the Goodell Bot avatar, not the Mattermost logo.
+    test('IFL: system message shows the Goodell Bot avatar', () => {
+        renderWithContext(
+            <PostProfilePicture
+                {...baseProps}
+                compactDisplay={false}
+                post={TestHelper.getPostMock({user_id: 'defaultuser', type: 'system_join_leave'})}
+            />,
+        );
+
+        const icon = screen.getByTestId('goodell-bot-icon');
+        expect(icon.querySelector('img')).toHaveStyle({borderRadius: '50%'});
+        expect(screen.queryByLabelText('Mattermost Logo')).not.toBeInTheDocument();
+    });
 });

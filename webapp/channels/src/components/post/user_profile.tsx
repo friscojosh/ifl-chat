@@ -152,11 +152,12 @@ const PostUserProfile = (props: Props): JSX.Element | null => {
                 />
             );
         } else if (isSystemMessage) {
+            // IFL: system messages are shown as posted by "Goodell Bot".
             userProfile = (
                 <UserProfile
                     overwriteName={intl.formatMessage({
                         id: 'post_info.system',
-                        defaultMessage: 'System',
+                        defaultMessage: 'Goodell Bot',
                     })}
                     userId={post.user_id}
                     disablePopover={true}

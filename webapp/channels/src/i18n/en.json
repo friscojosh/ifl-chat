@@ -18004,20 +18004,20 @@
     "description": "System message posted when a member restores (unarchives) the channel; {username} is that member."
   },
   "api.team.add_member.added": {
-    "defaultMessage": "{addedUsername} added to the team by {username}",
-    "description": "System message posted when a user is added to the team; {addedUsername} is the user added and {username} is who added them."
+    "defaultMessage": "{addedUsername} added to the league by {username}",
+    "description": "System message posted when a user is added to the league; {addedUsername} is the user added and {username} is who added them."
   },
   "api.team.join_team.post_and_forget": {
-    "defaultMessage": "{username} joined the team.",
+    "defaultMessage": "{username} joined the league.",
     "description": "System message posted when a user joins the team; {username} is that user's name."
   },
   "api.team.leave.left": {
-    "defaultMessage": "{username} left the team.",
+    "defaultMessage": "{username} left the league.",
     "description": "System message posted when a user leaves the team; {username} is that user's name."
   },
   "api.team.remove_user_from_team.removed": {
-    "defaultMessage": "{removedUsername} was removed from the team.",
-    "description": "System message posted when a user is removed from the team; {removedUsername} is the removed user's name."
+    "defaultMessage": "{removedUsername} was removed from the league.",
+    "description": "System message posted when a user is removed from the league; {removedUsername} is the removed user's name."
   },
   "app_bar.marketplace": {
     "defaultMessage": "App Marketplace",
@@ -21352,20 +21352,20 @@
     "description": "System message in the channel when two users were added; {firstUser} and {secondUser} are usernames, {actor} is who added them; ** renders bold markdown."
   },
   "combined_system_message.added_to_team.many_expanded": {
-    "defaultMessage": "{users} and {lastUser} were **added to the team** by {actor}.",
-    "description": "System message shown when several users were added to the team; {users} is a comma-separated list of usernames, {lastUser} the final username, {actor} who added them; ** renders bold markdown."
+    "defaultMessage": "{users} and {lastUser} were **added to the league** by {actor}.",
+    "description": "System message shown when several users were added to the league; {users} is a comma-separated list of usernames, {lastUser} the final username, {actor} who added them; ** renders bold markdown."
   },
   "combined_system_message.added_to_team.one": {
-    "defaultMessage": "{firstUser} **added to the team** by {actor}.",
-    "description": "System message shown when one user was added to the team; {firstUser} is the added user's username, {actor} who added them; ** renders bold markdown."
+    "defaultMessage": "{firstUser} **added to the league** by {actor}.",
+    "description": "System message shown when one user was added to the league; {firstUser} is the added user's username, {actor} who added them; ** renders bold markdown."
   },
   "combined_system_message.added_to_team.one_you": {
-    "defaultMessage": "You were **added to the team** by {actor}.",
-    "description": "System message shown when the current user was added to the team; {actor} is the user who added them; ** ** is markdown bold."
+    "defaultMessage": "You were **added to the league** by {actor}.",
+    "description": "System message shown when the current user was added to the league; {actor} is the user who added them; ** ** is markdown bold."
   },
   "combined_system_message.added_to_team.two": {
-    "defaultMessage": "{firstUser} and {secondUser} **added to the team** by {actor}.",
-    "description": "System message shown when two users were added to the team; {firstUser} and {secondUser} are usernames, {actor} who added them; ** renders bold markdown."
+    "defaultMessage": "{firstUser} and {secondUser} **added to the league** by {actor}.",
+    "description": "System message shown when two users were added to the league; {firstUser} and {secondUser} are usernames, {actor} who added them; ** renders bold markdown."
   },
   "combined_system_message.join_left_channel.many_expanded": {
     "defaultMessage": "{users} and {lastUser} **joined and left the channel**.",
@@ -21400,20 +21400,20 @@
     "description": "System message shown when two users joined the channel; {firstUser} and {secondUser} are usernames; ** renders bold markdown."
   },
   "combined_system_message.joined_team.many_expanded": {
-    "defaultMessage": "{users} and {lastUser} **joined the team**.",
-    "description": "System message shown when several users joined the team; {users} is a comma-separated list of usernames and {lastUser} the final username; ** renders bold markdown."
+    "defaultMessage": "{users} and {lastUser} **joined the league**.",
+    "description": "System message shown when several users joined the league; {users} is a comma-separated list of usernames and {lastUser} the final username; ** renders bold markdown."
   },
   "combined_system_message.joined_team.one": {
-    "defaultMessage": "{firstUser} **joined the team**.",
-    "description": "System message shown when one user joined the team; {firstUser} is their username; ** renders bold markdown."
+    "defaultMessage": "{firstUser} **joined the league**.",
+    "description": "System message shown when one user joined the league; {firstUser} is their username; ** renders bold markdown."
   },
   "combined_system_message.joined_team.one_you": {
-    "defaultMessage": "You **joined the team**.",
-    "description": "System message shown when the current user joined the team; ** ** is markdown bold."
+    "defaultMessage": "You **joined the league**.",
+    "description": "System message shown when the current user joined the league; ** ** is markdown bold."
   },
   "combined_system_message.joined_team.two": {
-    "defaultMessage": "{firstUser} and {secondUser} **joined the team**.",
-    "description": "System message shown when two users joined the team; {firstUser} and {secondUser} are usernames; ** renders bold markdown."
+    "defaultMessage": "{firstUser} and {secondUser} **joined the league**.",
+    "description": "System message shown when two users joined the league; {firstUser} and {secondUser} are usernames; ** renders bold markdown."
   },
   "combined_system_message.left_channel.many_expanded": {
     "defaultMessage": "{users} and {lastUser} **left the channel**.",
@@ -21432,20 +21432,20 @@
     "description": "System message shown when two users left the channel; {firstUser} and {secondUser} are usernames; ** renders bold markdown."
   },
   "combined_system_message.left_team.many_expanded": {
-    "defaultMessage": "{users} and {lastUser} **left the team**.",
-    "description": "System message shown when several users left the team; {users} is a comma-separated list of usernames and {lastUser} the final username; ** renders bold markdown."
+    "defaultMessage": "{users} and {lastUser} **left the league**.",
+    "description": "System message shown when several users left the league; {users} is a comma-separated list of usernames and {lastUser} the final username; ** renders bold markdown."
   },
   "combined_system_message.left_team.one": {
-    "defaultMessage": "{firstUser} **left the team**.",
-    "description": "System message shown when one user left the team; {firstUser} is their username; ** renders bold markdown."
+    "defaultMessage": "{firstUser} **left the league**.",
+    "description": "System message shown when one user left the league; {firstUser} is their username; ** renders bold markdown."
   },
   "combined_system_message.left_team.one_you": {
-    "defaultMessage": "You **left the team**.",
-    "description": "System message shown when the current user left the team; ** ** is markdown bold."
+    "defaultMessage": "You **left the league**.",
+    "description": "System message shown when the current user left the league; ** ** is markdown bold."
   },
   "combined_system_message.left_team.two": {
-    "defaultMessage": "{firstUser} and {secondUser} **left the team**.",
-    "description": "System message shown when two users left the team; {firstUser} and {secondUser} are usernames; ** renders bold markdown."
+    "defaultMessage": "{firstUser} and {secondUser} **left the league**.",
+    "description": "System message shown when two users left the league; {firstUser} and {secondUser} are usernames; ** renders bold markdown."
   },
   "combined_system_message.removed_from_channel.many_expanded": {
     "defaultMessage": "{users} and {lastUser} were **removed from the channel**.",
@@ -21464,20 +21464,20 @@
     "description": "System message shown when two users were removed from the channel; {firstUser} and {secondUser} are usernames; ** renders bold markdown."
   },
   "combined_system_message.removed_from_team.many_expanded": {
-    "defaultMessage": "{users} and {lastUser} were **removed from the team**.",
-    "description": "System message shown when several users were removed from the team; {users} is a comma-separated list of usernames and {lastUser} the final username; ** renders bold markdown."
+    "defaultMessage": "{users} and {lastUser} were **removed from the league**.",
+    "description": "System message shown when several users were removed from the league; {users} is a comma-separated list of usernames and {lastUser} the final username; ** renders bold markdown."
   },
   "combined_system_message.removed_from_team.one": {
-    "defaultMessage": "{firstUser} was **removed from the team**.",
-    "description": "System message shown when one user was removed from the team; {firstUser} is their username; ** renders bold markdown."
+    "defaultMessage": "{firstUser} was **removed from the league**.",
+    "description": "System message shown when one user was removed from the league; {firstUser} is their username; ** renders bold markdown."
   },
   "combined_system_message.removed_from_team.one_you": {
-    "defaultMessage": "You were **removed from the team**.",
-    "description": "System message shown when the current user was removed from the team; ** ** is markdown bold."
+    "defaultMessage": "You were **removed from the league**.",
+    "description": "System message shown when the current user was removed from the league; ** ** is markdown bold."
   },
   "combined_system_message.removed_from_team.two": {
-    "defaultMessage": "{firstUser} and {secondUser} were **removed from the team**.",
-    "description": "System message shown when two users were removed from the team; {firstUser} and {secondUser} are usernames; ** renders bold markdown."
+    "defaultMessage": "{firstUser} and {secondUser} were **removed from the league**.",
+    "description": "System message shown when two users were removed from the league; {firstUser} and {secondUser} are usernames; ** renders bold markdown."
   },
   "combined_system_message.you": {
     "defaultMessage": "You",
@@ -25516,8 +25516,8 @@
     "description": "Trailing fragment of a collapsed system message, concatenated after '{firstUser} and N others'; describes users added to the channel; {actor} is the username of who added them; ** renders bold markdown."
   },
   "last_users_message.added_to_team.type": {
-    "defaultMessage": "were **added to the team** by {actor}.",
-    "description": "Trailing fragment of a collapsed system message, concatenated after '{firstUser} and N others'; describes users added to the team; {actor} is the username of who added them; ** renders bold markdown."
+    "defaultMessage": "were **added to the league** by {actor}.",
+    "description": "Trailing fragment of a collapsed system message, concatenated after '{firstUser} and N others'; describes users added to the league; {actor} is the username of who added them; ** renders bold markdown."
   },
   "last_users_message.first": {
     "defaultMessage": "{firstUser} and ",
@@ -25532,7 +25532,7 @@
     "description": "Trailing fragment of a collapsed system message, concatenated after '{firstUser} and N others'; the plural subject is the user list; ** renders bold markdown."
   },
   "last_users_message.joined_team.type": {
-    "defaultMessage": "**joined the team**.",
+    "defaultMessage": "**joined the league**.",
     "description": "Trailing fragment of a collapsed system message, concatenated after '{firstUser} and N others'; the plural subject is the user list; ** renders bold markdown."
   },
   "last_users_message.left_channel.type": {
@@ -25540,7 +25540,7 @@
     "description": "Trailing fragment of a collapsed system message, concatenated after '{firstUser} and N others'; the plural subject is the user list; ** renders bold markdown."
   },
   "last_users_message.left_team.type": {
-    "defaultMessage": "**left the team**.",
+    "defaultMessage": "**left the league**.",
     "description": "Trailing fragment of a collapsed system message, concatenated after '{firstUser} and N others'; the plural subject is the user list; ** renders bold markdown."
   },
   "last_users_message.others": {
@@ -25552,7 +25552,7 @@
     "description": "Trailing fragment of a collapsed system message, concatenated after '{firstUser} and N others'; the plural subject is the user list; ** renders bold markdown."
   },
   "last_users_message.removed_from_team.type": {
-    "defaultMessage": "were **removed from the team**.",
+    "defaultMessage": "were **removed from the league**.",
     "description": "Trailing fragment of a collapsed system message, concatenated after '{firstUser} and N others'; the plural subject is the user list; ** renders bold markdown."
   },
   "learn_about_teams": {
@@ -27700,7 +27700,7 @@
     "description": "Accessibility label for the modal that displays a menu's submenu options on mobile."
   },
   "post_info.system": {
-    "defaultMessage": "System",
+    "defaultMessage": "Goodell Bot",
     "description": "Sender name displayed for messages generated by the system rather than a user."
   },
   "post_info.tooltip.actions": {

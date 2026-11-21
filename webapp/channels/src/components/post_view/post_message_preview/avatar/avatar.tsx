@@ -8,7 +8,7 @@ import type {UserProfile} from '@mattermost/types/users';
 
 import {ensureString} from 'mattermost-redux/utils/post_utils';
 
-import MattermostLogo from 'components/widgets/icons/mattermost_logo';
+import GoodellBotIcon from 'components/ifl_goodell_bot/goodell_bot_icon'; // IFL: replaces the Mattermost logo import.
 import Avatar from 'components/widgets/users/avatar';
 
 import {Constants} from 'utils/constants';
@@ -51,7 +51,13 @@ export default function PreviewPostAvatar({post, user, enablePostIconOverride, h
         />
     );
     if (isSystemMessage && !fromWebhook && !isBot) {
-        avatar = (<MattermostLogo className='icon'/>);
+        // IFL: system messages come from Goodell Bot, with its avatar.
+        avatar = (
+            <GoodellBotIcon
+                className='icon'
+                size={24}
+            />
+        );
     } else if (user?.id) {
         avatar = (
             <Avatar

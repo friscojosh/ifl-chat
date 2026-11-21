@@ -197,3 +197,23 @@ describe('renderSystemMessage team access control posts', () => {
         expect(container.firstChild).toBeEmptyDOMElement();
     });
 });
+
+// IFL: team membership system messages use league wording.
+describe('IFL league wording for team membership system messages', () => {
+    const channel = {id: 'channel_id', name: 'town-square', type: 'O'} as Channel;
+
+    const renderPost = (type: string, props: Record<string, unknown>) => renderWithContext(
+        <div>{renderSystemMessage({id: 'p', type, message: '', props} as unknown as Post, 'team', channel, false)}</div>,
+    );
+
+    it.each([
+        [Posts.POST_TYPES.JOIN_TEAM, {username: 'alice'}, 'joined the league.'],
+        [Posts.POST_TYPES.LEAVE_TEAM, {username: 'alice'}, 'left the league.'],
+        [Posts.POST_TYPES.ADD_TO_TEAM, {username: 'bob', addedUsername: 'alice'}, 'added to the league by'],
+        [Posts.POST_TYPES.REMOVE_FROM_TEAM, {username: 'alice'}, 'was removed from the league.'],
+    ])('%s says "%s"', (type, props, text) => {
+        const {container} = renderPost(type, props);
+        expect(container.textContent).toContain(text);
+        expect(container.textContent).not.toContain('the team');
+    });
+});

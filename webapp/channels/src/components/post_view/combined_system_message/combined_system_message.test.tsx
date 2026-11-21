@@ -170,4 +170,23 @@ describe('components/post_view/CombinedSystemMessage', () => {
 
         expect(container).toMatchSnapshot();
     });
+
+    // IFL: combined team membership messages use league wording.
+    test.each([
+        [Posts.POST_TYPES.JOIN_TEAM, 'joined the league'],
+        [Posts.POST_TYPES.LEAVE_TEAM, 'left the league'],
+        [Posts.POST_TYPES.ADD_TO_TEAM, 'added to the league'],
+        [Posts.POST_TYPES.REMOVE_FROM_TEAM, 'removed from the league'],
+    ])('IFL: combined %s message says "%s"', (postType, text) => {
+        const {container} = renderWithContext(
+            <CombinedSystemMessage
+                {...baseProps}
+                allUserIds={['user_id_1', 'user_id_2', 'other_user_id']}
+                messageData={[{actorId: 'other_user_id', postType, userIds: ['user_id_1', 'user_id_2']}]}
+            />,
+        );
+
+        expect(container.textContent).toContain(text);
+        expect(container.textContent).not.toContain('the team');
+    });
 });
