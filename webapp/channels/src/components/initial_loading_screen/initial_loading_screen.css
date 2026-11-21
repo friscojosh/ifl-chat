@@ -360,3 +360,29 @@ body {
         stroke-dashoffset: 0;
     }
 }
+
+/* IFL: the IFL Chat icon, pulsing, instead of the Mattermost compass animation
+   (whose svg is hidden). The loaded state still fades and shrinks
+   .LoadingAnimation, whose animationend ends the loading screen. */
+.LoadingAnimation > svg {
+    display: none;
+}
+
+.LoadingAnimation .LoadingAnimation__ifl-icon {
+    display: block;
+    width: 72px;
+    height: 72px;
+    border-radius: 16px;
+    animation: LoadingAnimation__ifl-pulse 1200ms ease-in-out infinite alternate;
+}
+
+@keyframes LoadingAnimation__ifl-pulse {
+    0% {
+        opacity: 1;
+        transform: scale3d(1, 1, 1);
+    }
+    100% {
+        opacity: 0.6;
+        transform: scale3d(0.92, 0.92, 1);
+    }
+}

@@ -8,6 +8,7 @@ import {useSelector} from 'react-redux';
 import {getConfig} from 'mattermost-redux/selectors/entities/general';
 
 import ExternalLink from 'components/external_link';
+import {IFL_APP_NAME, IFL_SITE_LABEL, IFL_SITE_URL, iflCopyright} from 'components/header_footer_route/ifl_branding'; // IFL: league footer
 
 type Props = {
     children?: React.ReactNode | readonly React.ReactNode[];
@@ -111,7 +112,7 @@ const HeaderFooterNotLoggedIn = (props: Props) => {
                             id='company_name'
                             className='pull-right footer-site-name'
                         >
-                            {'Mattermost'}
+                            {IFL_APP_NAME /* IFL: was 'Mattermost' */}
                         </span>
                     </div>
                     <div className='col-xs-12'>
@@ -119,10 +120,18 @@ const HeaderFooterNotLoggedIn = (props: Props) => {
                             id='copyright'
                             className='pull-right footer-link copyright'
                         >
-                            {`© 2015-${new Date().getFullYear()} Mattermost, Inc.`}
+                            {iflCopyright() /* IFL: league copyright */}
                         </span>
                         <span className='pull-right'>
-                            {content}
+                            {/* IFL: a link to iflgm.com in place of the About, Privacy Policy, Terms and Help links (content) */}
+                            <ExternalLink
+                                id='ifl_site_link'
+                                className='footer-link'
+                                location='header_footer_template'
+                                href={IFL_SITE_URL}
+                            >
+                                {IFL_SITE_LABEL}
+                            </ExternalLink>
                         </span>
                     </div>
                 </div>

@@ -68,18 +68,24 @@ export default class ErrorPage extends React.PureComponent<Props> {
         if (type === ErrorPageTypes.PERMALINK_NOT_FOUND && returnTo) {
             backButton = (
                 <Link to={returnTo}>
-                    <FormattedMessage
-                        id='error.generic.link'
-                        defaultMessage='Back to Mattermost'
+                    <FormattedMessage // IFL: the site name (IFL Chat), not Mattermost
+                        id='error.generic.siteLink'
+                        defaultMessage='Back to {siteName}'
+                        values={{
+                            siteName: this.props.siteName,
+                        }}
                     />
                 </Link>
             );
         } else if (type === ErrorPageTypes.CLOUD_ARCHIVED && returnTo) {
             backButton = (
                 <Link to={returnTo}>
-                    <FormattedMessage
-                        id='error.generic.link'
-                        defaultMessage='Back to Mattermost'
+                    <FormattedMessage // IFL: the site name (IFL Chat), not Mattermost
+                        id='error.generic.siteLink'
+                        defaultMessage='Back to {siteName}'
+                        values={{
+                            siteName: this.props.siteName,
+                        }}
                     />
                 </Link>
             );

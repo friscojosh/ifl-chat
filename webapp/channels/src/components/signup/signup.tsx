@@ -35,6 +35,7 @@ import type {ExternalLoginButtonType} from 'components/external_login_button/ext
 import AlternateLinkLayout from 'components/header_footer_route/content_layouts/alternate_link';
 import ColumnLayout from 'components/header_footer_route/content_layouts/column';
 import type {CustomizeHeaderType} from 'components/header_footer_route/header_footer_route';
+import {IFL_TAGLINE} from 'components/header_footer_route/ifl_branding'; // IFL: league tagline
 import LoadingScreen from 'components/loading_screen';
 import {IFL_SIGNIN_LABEL} from 'components/login/ifl_signin'; // IFL: iflgm.com sign-in (the GitLab icon import is removed)
 import Markdown from 'components/markdown';
@@ -408,10 +409,7 @@ const Signup = ({onCustomizeHeader}: SignupProps) => {
 
         return (
             <p className='signup-body-message-subtitle'>
-                {formatMessage({
-                    id: 'signup_user_completed.subtitle',
-                    defaultMessage: 'Create your Mattermost account to start collaborating with your team',
-                })}
+                {IFL_TAGLINE /* IFL: league tagline instead of signup_user_completed.subtitle */}
             </p>
         );
     };

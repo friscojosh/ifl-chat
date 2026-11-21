@@ -22723,10 +22723,6 @@
     "defaultMessage": "Back to {defaultChannelName}",
     "description": "Back navigation link on the channel-not-found error page; {defaultChannelName} is the default channel's name, usually 'Town Square'."
   },
-  "error.generic.link": {
-    "defaultMessage": "Back to Mattermost",
-    "description": "Back navigation link on error pages that returns the user to the previous location in Mattermost."
-  },
   "error.generic.link_login": {
     "defaultMessage": "Back to Login Page",
     "description": "Link text on the error page that takes the user back to the login page."
@@ -25894,10 +25890,6 @@
   "login.session_expired.title": {
     "defaultMessage": "* Session Expired - {siteName}",
     "description": "Browser tab title on the login page after a session expiry; {siteName} is the server name; the leading '*' is an unread marker and should be kept."
-  },
-  "login.subtitle": {
-    "defaultMessage": "Collaborate with your team in real-time",
-    "description": "Marketing subtitle displayed alongside the login form on the login page."
   },
   "login.terms_rejected": {
     "defaultMessage": "You must agree to the terms of use before accessing {siteName}. Please contact your System Administrator for more details.",
@@ -30670,10 +30662,6 @@
   "signup_user_completed.signIn": {
     "defaultMessage": "Log in",
     "description": "Link at the top of the signup page taking existing users to the login page; 'Log in' is a verb phrase."
-  },
-  "signup_user_completed.subtitle": {
-    "defaultMessage": "Create your Mattermost account to start collaborating with your team",
-    "description": "Subtitle under the signup page heading."
   },
   "signup_user_completed.title": {
     "defaultMessage": "Let’s get started",

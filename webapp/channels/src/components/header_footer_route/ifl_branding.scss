@@ -1,0 +1,41 @@
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
+// IFL: new file. Styles for ifl_branding.tsx and ifl_footer.tsx.
+
+.ifl-header-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+
+    &__icon {
+        width: 40px;
+        height: 40px;
+        flex: none;
+        border-radius: 9px;
+    }
+
+    &__name {
+        color: var(--center-channel-color);
+        font-family: 'Metropolis', sans-serif;
+        font-size: 22px;
+        font-weight: 600;
+        line-height: 28px;
+    }
+}
+
+@media screen and (max-width: 699px) {
+    .ifl-header-brand {
+        gap: 10px;
+
+        &__icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 7px;
+        }
+
+        &__name {
+            font-size: 20px;
+        }
+    }
+}
