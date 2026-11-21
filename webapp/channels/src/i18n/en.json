@@ -22723,10 +22723,6 @@
     "defaultMessage": "Back to {defaultChannelName}",
     "description": "Back navigation link on the channel-not-found error page; {defaultChannelName} is the default channel's name, usually 'Town Square'."
   },
-  "error.generic.link": {
-    "defaultMessage": "Back to Mattermost",
-    "description": "Back navigation link on error pages that returns the user to the previous location in Mattermost."
-  },
   "error.generic.link_login": {
     "defaultMessage": "Back to Login Page",
     "description": "Link text on the error page that takes the user back to the login page."
