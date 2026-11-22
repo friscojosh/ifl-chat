@@ -15,6 +15,8 @@ import {getCurrentUser} from 'mattermost-redux/selectors/entities/users';
 import {redirectUserToDefaultTeam} from 'actions/global_actions';
 import {loginWithDesktopToken} from 'actions/views/login';
 
+import {iflDesktopHandoffURL} from 'components/ifl/ifl_desktop'; // IFL: iflchat:// hand-off
+
 import DesktopApp from 'utils/desktop_api';
 
 import './desktop_auth_token.scss';
@@ -80,13 +82,7 @@ const DesktopAuthToken: React.FC<Props> = ({href, onLogin}: Props) => {
     };
 
     const forwardToDesktopApp = () => {
-        const url = new URL(window.location.href);
-        let protocol = 'mattermost';
-        if (url.searchParams.get('isDesktopDev')) {
-            protocol = 'mattermost-dev';
-        }
-
-        window.location.href = url.toString().replace(url.protocol, `${protocol}:`);
+        window.location.href = iflDesktopHandoffURL(window.location.href); // IFL: the IFL Chat desktop app's scheme, not mattermost://
     };
 
     useEffect(() => {
