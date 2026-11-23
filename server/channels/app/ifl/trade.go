@@ -48,15 +48,21 @@ type TradeCommandResult struct {
 }
 
 // TradeCommand forwards /trade [team] to the site with the member's site
-// id. The site opens a dialog with triggerID or answers with text.
-func (s *SiteClient) TradeCommand(ctx context.Context, siteID, triggerID, channelID, text string) (*TradeCommandResult, error) {
+// id. The site opens a dialog with triggerID or answers with text. In a
+// direct message, dmPartnerSiteID is the other member's site id (the site
+// pre-selects their team in "Trade with"); empty otherwise.
+func (s *SiteClient) TradeCommand(ctx context.Context, siteID, triggerID, channelID, text, dmPartnerSiteID string) (*TradeCommandResult, error) {
 	if !s.cfg.CallbackEnabled() {
 		return nil, fmt.Errorf("site callback is not configured")
 	}
 	if !siteIDPattern.MatchString(siteID) {
 		return nil, fmt.Errorf("invalid site user id %q", siteID)
 	}
-	body, _ := json.Marshal(map[string]string{"trigger_id": triggerID, "channel_id": channelID, "text": text})
+	fields := map[string]string{"trigger_id": triggerID, "channel_id": channelID, "text": text}
+	if siteIDPattern.MatchString(dmPartnerSiteID) {
+		fields["dm_partner_site_id"] = dmPartnerSiteID
+	}
+	body, _ := json.Marshal(fields)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.cfg.SiteInternalURL+TradeCommandPath, bytes.NewReader(body))
 	if err != nil {
 		return nil, err

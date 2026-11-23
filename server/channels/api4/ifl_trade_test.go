@@ -117,6 +117,27 @@ func TestIFLTrade(t *testing.T) {
 		require.NotEmpty(t, call.body["trigger_id"])
 	})
 
+	t.Run("/trade in a DM sends the other GM's site id; elsewhere it doesn't", func(t *testing.T) {
+		other := iflGitlabUser(t, th, 23)
+		th.LinkUserToTeam(t, other, th.BasicTeam)
+		dm, appErr := th.App.GetOrCreateDirectChannel(th.Context, gm.Id, other.Id)
+		require.Nil(t, appErr)
+		_, _, err := gmClient.ExecuteCommandWithTeam(ctx, dm.Id, th.BasicTeam.Id, "/trade")
+		require.NoError(t, err)
+		require.Equal(t, "23", next().body["dm_partner_site_id"])
+
+		// A DM with someone who doesn't sign in with iflgm.com: nothing to pre-select.
+		plain, appErr := th.App.GetOrCreateDirectChannel(th.Context, gm.Id, th.BasicUser2.Id)
+		require.Nil(t, appErr)
+		_, _, err = gmClient.ExecuteCommandWithTeam(ctx, plain.Id, th.BasicTeam.Id, "/trade")
+		require.NoError(t, err)
+		require.NotContains(t, next().body, "dm_partner_site_id")
+
+		_, _, err = gmClient.ExecuteCommand(ctx, th.BasicChannel.Id, "/trade")
+		require.NoError(t, err)
+		require.NotContains(t, next().body, "dm_partner_site_id")
+	})
+
 	t.Run("with custom commands off, only the allowlisted built-ins run", func(t *testing.T) {
 		for _, command := range []string{"/away", "/online", "/offline", "/dnd", "/me waves", "/shrug",
 			"/msg @" + th.BasicUser2.Username + " hello", "/mute", "/mute", "/expand", "/collapse", "/help"} {

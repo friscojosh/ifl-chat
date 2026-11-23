@@ -80,6 +80,25 @@ func (a *App) iflSignTradeCallback(rctx request.CTX, inURL *url.URL, req *http.R
 	return true
 }
 
+// iflDMPartnerSiteID is the site id of the other member of a direct
+// message, or "" (not a DM, a DM with yourself, a bot, or someone who
+// doesn't sign in with iflgm.com). The site pre-selects their team.
+func (a *App) iflDMPartnerSiteID(rctx request.CTX, channelID, userID string) string {
+	channel, appErr := a.GetChannel(rctx, channelID)
+	if appErr != nil || channel.Type != model.ChannelTypeDirect {
+		return ""
+	}
+	otherID := channel.GetOtherUserIdForDM(userID)
+	if otherID == "" || otherID == userID {
+		return ""
+	}
+	other, appErr := a.GetUser(rctx, otherID)
+	if appErr != nil {
+		return ""
+	}
+	return iflSiteID(other)
+}
+
 // IFLTradeCommand runs `/trade [team]`: the site decides (chat trading
 // gate, partner) and opens the trade dialog with the command's trigger id,
 // or answers with text shown only to the member.
@@ -106,7 +125,8 @@ func (a *App) IFLTradeCommand(rctx request.CTX, args *model.CommandArgs, message
 	}
 	ctx, cancel := context.WithTimeout(rctx.Context(), 10*time.Second)
 	defer cancel()
-	res, err := ifl.NewSiteClient(cfg).TradeCommand(ctx, siteID, args.TriggerId, args.ChannelId, message)
+	res, err := ifl.NewSiteClient(cfg).TradeCommand(ctx, siteID, args.TriggerId, args.ChannelId, message,
+		a.iflDMPartnerSiteID(rctx, args.ChannelId, user.Id))
 	if err != nil {
 		rctx.Logger().Warn("IFL: /trade could not reach iflgm.com", mlog.Err(err))
 		return reply("iflgm.com didn't answer. Try again, or " + iflTradeCenterText)
