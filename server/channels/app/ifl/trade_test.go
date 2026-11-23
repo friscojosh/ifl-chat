@@ -48,18 +48,27 @@ func TestTradeCommand(t *testing.T) {
 	var body map[string]string
 	site := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		got = r
+		body = nil
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
 		_, _ = w.Write([]byte(`{"text":"pick a team"}`))
 	}))
 	defer site.Close()
 
-	res, err := NewSiteClient(tradeCfg(site.URL)).TradeCommand(context.Background(), "16", "trig", "ch1", "MIA")
+	res, err := NewSiteClient(tradeCfg(site.URL)).TradeCommand(context.Background(), "16", "trig", "ch1", "MIA", "")
 	require.NoError(t, err)
 	require.Equal(t, "pick a team", res.Text)
 	require.Equal(t, TradeCommandPath, got.URL.Path)
 	require.Equal(t, strings.Repeat("s", 40), got.Header.Get(SecretHeader))
 	require.Equal(t, "16", got.Header.Get(SiteUserHeader))
 	require.Equal(t, map[string]string{"trigger_id": "trig", "channel_id": "ch1", "text": "MIA"}, body)
+
+	_, err = NewSiteClient(tradeCfg(site.URL)).TradeCommand(context.Background(), "16", "trig", "dm1", "", "23")
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{"trigger_id": "trig", "channel_id": "dm1", "text": "", "dm_partner_site_id": "23"}, body)
+
+	_, err = NewSiteClient(tradeCfg(site.URL)).TradeCommand(context.Background(), "16", "trig", "dm1", "", "23 OR 1")
+	require.NoError(t, err)
+	require.NotContains(t, body, "dm_partner_site_id", "a malformed partner id is never sent")
 }
 
 func TestTradeCommandRefusals(t *testing.T) {
@@ -67,10 +76,10 @@ func TestTradeCommandRefusals(t *testing.T) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}))
 	defer site.Close()
-	_, err := NewSiteClient(tradeCfg(site.URL)).TradeCommand(context.Background(), "16", "t", "c", "")
+	_, err := NewSiteClient(tradeCfg(site.URL)).TradeCommand(context.Background(), "16", "t", "c", "", "")
 	require.ErrorContains(t, err, "refused")
-	_, err = NewSiteClient(tradeCfg(site.URL)).TradeCommand(context.Background(), "16 OR 1", "t", "c", "")
+	_, err = NewSiteClient(tradeCfg(site.URL)).TradeCommand(context.Background(), "16 OR 1", "t", "c", "", "")
 	require.ErrorContains(t, err, "invalid site user id")
-	_, err = NewSiteClient(Config{}).TradeCommand(context.Background(), "16", "t", "c", "")
+	_, err = NewSiteClient(Config{}).TradeCommand(context.Background(), "16", "t", "c", "", "")
 	require.ErrorContains(t, err, "not configured")
 }
