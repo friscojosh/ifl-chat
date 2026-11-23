@@ -10,6 +10,7 @@ import (
 
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/shared/mlog"
+	"github.com/mattermost/mattermost/server/v8/channels/app"
 	"github.com/mattermost/mattermost/server/v8/channels/app/ifl"
 )
 
@@ -20,6 +21,83 @@ func (api *API) InitIFL() {
 	api.BaseRoutes.APIRoot.Handle("/ifl/team_badges", api.APISessionRequired(iflGetTeamBadges)).Methods(http.MethodGet)
 	api.BaseRoutes.APIRoot.Handle("/ifl/team_badges/refresh", api.APISessionRequired(iflRefreshTeamBadges)).Methods(http.MethodPost)
 	api.BaseRoutes.APIRoot.Handle("/ifl/team_badges/logos/{abbr:[A-Za-z0-9]+}.png", api.APIHandler(iflGetTeamLogo)).Methods(http.MethodGet)
+	api.BaseRoutes.APIRoot.Handle("/ifl/trade_cards", api.APISessionRequired(iflCreateTradeCard)).Methods(http.MethodPost)
+}
+
+// iflCreateTradeCard posts a trade offer as the proposing GM in their direct
+// message with the other GM (system admin only: the site's relay). A second
+// delivery of the same card answers 200 with the post already there
+// (adopted) instead of 201.
+func iflCreateTradeCard(c *Context, w http.ResponseWriter, r *http.Request) {
+	auditRec := c.MakeAuditRecord("iflCreateTradeCard", model.AuditStatusFail)
+	defer c.LogAuditRecWithLevel(auditRec, app.LevelContent)
+
+	if !c.IsSystemAdmin() {
+		c.SetPermissionError(model.PermissionManageSystem)
+		return
+	}
+	var body struct {
+		AuthorID    string                `json:"author_id"`
+		RecipientID string                `json:"recipient_id"`
+		TradeID     *int64                `json:"trade_id"`
+		Message     string                `json:"message"`
+		Props       model.StringInterface `json:"props"`
+		Type        string                `json:"type"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&body); err != nil {
+		c.SetInvalidParamWithErr("body", err)
+		return
+	}
+	if body.TradeID == nil {
+		c.SetInvalidParam("trade_id")
+		return
+	}
+	model.AddEventParameterToAuditRec(auditRec, "author_id", body.AuthorID)
+	model.AddEventParameterToAuditRec(auditRec, "recipient_id", body.RecipientID)
+	model.AddEventParameterToAuditRec(auditRec, "trade_id", *body.TradeID)
+	if rejectOversizedMessage(c, "Api4.iflCreateTradeCard", body.Message) {
+		return
+	}
+
+	post, adopted, appErr := c.App.IFLPostTradeCard(c.AppContext, app.IFLTradeCardRequest{
+		AuthorID: body.AuthorID, RecipientID: body.RecipientID, TradeID: *body.TradeID,
+		Message: body.Message, Props: body.Props, Type: body.Type,
+	})
+	if appErr != nil {
+		c.Err = appErr
+		return
+	}
+	auditRec.Success()
+	auditRec.AddEventResultState(post)
+	auditRec.AddEventObjectType("post")
+	model.AddEventParameterToAuditRec(auditRec, "adopted", adopted)
+
+	w.Header().Set("Cache-Control", "no-store")
+	if adopted {
+		w.WriteHeader(http.StatusOK)
+	} else {
+		w.WriteHeader(http.StatusCreated)
+	}
+	if err := json.NewEncoder(w).Encode(map[string]any{
+		"post_id": post.Id, "channel_id": post.ChannelId, "adopted": adopted,
+	}); err != nil {
+		c.Logger.Warn("Error while writing response", mlog.Err(err))
+	}
+}
+
+// iflTradeCardLock refuses (403) anyone but a system admin when any of the
+// posts is a trade card: before the post exists, as it stands, or as the
+// change would leave it. A nil post is skipped.
+func iflTradeCardLock(c *Context, where string, posts ...*model.Post) {
+	if c.Err != nil || c.IsSystemAdmin() {
+		return
+	}
+	for _, post := range posts {
+		if ifl.IsTradeCard(post) {
+			c.Err = app.IFLTradeCardLocked(where)
+			return
+		}
+	}
 }
 
 // iflUpdateEmail sets a site-linked member's email (system admin only): the

@@ -21,6 +21,7 @@ import (
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/shared/mlog"
 	"github.com/mattermost/mattermost/server/public/shared/request"
+	"github.com/mattermost/mattermost/server/v8/channels/app/ifl"
 	"github.com/mattermost/mattermost/server/v8/channels/store"
 	"github.com/mattermost/mattermost/server/v8/channels/utils"
 )
@@ -498,6 +499,11 @@ func (a *App) CreateWebhookPost(rctx request.CTX, userID string, channel *model.
 				post.AddProp(key, val)
 			}
 		}
+	}
+
+	// IFL: a webhook never posts a trade card (ifl_trade_card.go).
+	if ifl.IsTradeCard(post) {
+		return nil, IFLTradeCardLocked("CreateWebhookPost")
 	}
 
 	mmBlocksEnabled := a.Config().FeatureFlags.MmBlocksEnabled

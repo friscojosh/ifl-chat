@@ -14487,6 +14487,11 @@
     "description": "Error returned when the server cannot reach iflgm.com to refresh team badges or fetch a team logo."
   },
   {
+    "id": "ifl.trade_card.locked",
+    "translation": "Trade cards are posted and updated by iflgm.com only.",
+    "description": "Error returned when anyone but a system admin tries to create, edit or delete a trade offer card."
+  },
+  {
     "id": "import_process.worker.do_job.file_exists",
     "translation": "Unable to process import: file does not exist.",
     "description": "Error status for a bulk import job when the uploaded import file does not exist; shown in the System Console jobs table and mmctl output."

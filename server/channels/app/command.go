@@ -20,6 +20,7 @@ import (
 	"github.com/mattermost/mattermost/server/public/shared/i18n"
 	"github.com/mattermost/mattermost/server/public/shared/mlog"
 	"github.com/mattermost/mattermost/server/public/shared/request"
+	"github.com/mattermost/mattermost/server/v8/channels/app/ifl"
 	"github.com/mattermost/mattermost/server/v8/channels/store"
 )
 
@@ -707,6 +708,10 @@ func (a *App) HandleCommandResponsePost(rctx request.CTX, command *model.Command
 	post.UserId = args.UserId
 	post.Type = response.Type
 	post.SetProps(response.Props)
+	// IFL: a command response never posts a trade card (ifl_trade_card.go).
+	if ifl.IsTradeCard(post) {
+		return nil, IFLTradeCardLocked("HandleCommandResponsePost")
+	}
 
 	if response.ChannelId != "" {
 		_, err := a.GetChannelMember(rctx, response.ChannelId, args.UserId)

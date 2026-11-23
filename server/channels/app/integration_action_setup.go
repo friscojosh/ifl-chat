@@ -495,6 +495,11 @@ func (a *App) applyPostActionUpdate(
 		return nil
 	}
 
+	// IFL: only iflgm.com's trade callback may change a trade card or make one (ifl_trade_card.go).
+	if IFLTradeCardActionUpdateRefused(setup.upstreamURL, setup.originalProps, update) {
+		return IFLTradeCardLocked("DoPostActionWithCookie")
+	}
+
 	if _, _, appErr := a.UpdatePost(rctx, update, &model.UpdatePostOptions{SafeUpdate: false, AllowMmBlocksActionsUpdate: true}); appErr != nil {
 		return appErr
 	}

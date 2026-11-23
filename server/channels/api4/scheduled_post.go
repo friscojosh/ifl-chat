@@ -62,6 +62,12 @@ func scheduledPostChecks(where string, c *Context, scheduledPost *model.Schedule
 		Type:      scheduledPost.Type,
 	}
 	postBurnOnReadCheckWithContext(where, c, post, nil)
+	if c.Err != nil {
+		return
+	}
+
+	// IFL: a scheduled post is never a trade card (ifl.go).
+	iflTradeCardLock(c, where, &model.Post{Type: scheduledPost.Type, Props: scheduledPost.GetProps()})
 }
 
 func requireScheduledPostsEnabled(c *Context) {

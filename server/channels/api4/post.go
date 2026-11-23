@@ -106,6 +106,12 @@ func createPostChecks(where string, c *Context, post *model.Post) {
 	}
 
 	postBurnOnReadCheckWithContext(where, c, post, nil)
+	if c.Err != nil {
+		return
+	}
+
+	// IFL: only a system admin posts a trade card (ifl.go, app/ifl_trade_card.go).
+	iflTradeCardLock(c, where, post)
 }
 
 func createPost(c *Context, w http.ResponseWriter, r *http.Request) {
@@ -845,6 +851,12 @@ func deletePost(c *Context, w http.ResponseWriter, _ *http.Request) {
 		}
 	}
 
+	// IFL: only a system admin deletes a trade card, its author and moderators included (ifl.go).
+	iflTradeCardLock(c, "deletePost", post)
+	if c.Err != nil {
+		return
+	}
+
 	if permanent {
 		appErr = c.App.PermanentDeletePost(c.AppContext, c.Params.PostId, c.AppContext.Session().UserId)
 	} else {
@@ -1189,6 +1201,12 @@ func updatePost(c *Context, w http.ResponseWriter, r *http.Request) {
 		post.Props = originalPost.Props
 	}
 
+	// IFL: only a system admin edits a trade card or makes a post one (ifl.go).
+	iflTradeCardLock(c, "updatePost", originalPost, &post)
+	if c.Err != nil {
+		return
+	}
+
 	if postEditTimeLimitExpired(c.App.Config(), originalPost) &&
 		(post.Message != originalPost.Message ||
 			!slices.Equal(post.FileIds, originalPost.FileIds) ||
@@ -1334,6 +1352,16 @@ func postPatchChecks(c *Context, auditRec *model.AuditRecord, patch *model.PostP
 	if !ok {
 		c.SetPermissionError(permission)
 		return nil, false
+	}
+
+	// IFL: only a system admin edits a trade card or makes a post one; pinning is not an edit (ifl.go).
+	if patchEditsMoreThanPinState(patch) {
+		patched := originalPost.Clone()
+		patched.Patch(patch)
+		iflTradeCardLock(c, "patchPost", originalPost, patched)
+		if c.Err != nil {
+			return nil, false
+		}
 	}
 
 	// Users who can't create posts in a channel shouldn't be able to edit them either.
