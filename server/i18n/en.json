@@ -14432,6 +14432,16 @@
     "description": "Pattern for joining a list into a sentence; {{.OtherItems}} is all items except the last joined by commas, {{.LastItem}} is the final item (e.g. 'a, b and c')."
   },
   {
+    "id": "ifl.cards.not_found",
+    "translation": "iflgm.com has no such game or story.",
+    "description": "Error returned when a score or news card shared from iflgm.com names a game or story the site does not have."
+  },
+  {
+    "id": "ifl.cards.unavailable",
+    "translation": "iflgm.com could not be reached for this card.",
+    "description": "Error returned when chat cannot read a shared score or news card from iflgm.com (unreachable, an error, or an unreadable answer)."
+  },
+  {
     "id": "ifl.email.conflict",
     "translation": "Another account already uses this email address.",
     "description": "Error returned when iflgm.com sets a member's email to an address that another chat account holds."

@@ -125,6 +125,12 @@ export function useIflTeamBadge(userId: string): IflBadgeTeam | undefined {
     return abbr ? badges.teams[abbr] : undefined;
 }
 
+/** A team's badge by abbreviation (its logo's revision for the logo URL). */
+export function useIflBadgeTeam(abbr: string | null | undefined): IflBadgeTeam | undefined {
+    const badges = useSyncExternalStore(subscribe, getSnapshot);
+    return abbr ? badges.teams[abbr] : undefined;
+}
+
 export function teamLogoUrl(team: IflBadgeTeam, size: 64 | 128): string {
     return `${Client4.getBaseRoute()}/ifl/team_badges/logos/${encodeURIComponent(team.abbr)}.png?s=${size}&v=${encodeURIComponent(team.logo_rev)}`;
 }

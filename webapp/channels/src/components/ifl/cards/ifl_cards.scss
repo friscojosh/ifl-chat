@@ -1,0 +1,398 @@
+// IFL: new file. The score and news cards shared from iflgm.com (app cards):
+// iflgm.com's own ScoreCard and NewsStory (compact) layouts, in the member's
+// chat theme. Sizes are the site's (its rem is 16px; chat's is 10px).
+
+.IflScoreCard,
+.IflNewsCard {
+    --ifl-card-surface: var(--center-channel-bg);
+    --ifl-card-surface-alt: rgba(var(--center-channel-color-rgb), 0.04);
+    --ifl-card-border: rgba(var(--center-channel-color-rgb), 0.16);
+    --ifl-card-border-light: rgba(var(--center-channel-color-rgb), 0.08);
+    --ifl-card-text: var(--center-channel-color);
+    --ifl-card-text-secondary: rgba(var(--center-channel-color-rgb), 0.84);
+    --ifl-card-text-muted: rgba(var(--center-channel-color-rgb), 0.64);
+    --ifl-card-text-faint: rgba(var(--center-channel-color-rgb), 0.56);
+    --ifl-card-accent: var(--button-bg);
+    --ifl-card-accent-rgb: var(--button-bg-rgb);
+
+    // Green that reads as text on light and dark themes alike.
+    --ifl-card-success: color-mix(in srgb, var(--online-indicator) 72%, var(--center-channel-color));
+    --ifl-card-danger: var(--error-text);
+}
+
+/* ===== Score card ===== */
+
+@keyframes IflScoreCard__pulse {
+    0%,
+    100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.IflScoreCard {
+    display: flex;
+    overflow: hidden;
+    max-width: 360px;
+    flex-direction: column;
+    border: 1px solid var(--ifl-card-border);
+    border-radius: 10px;
+    margin-top: 4px;
+    background: var(--ifl-card-surface);
+    color: var(--ifl-card-text);
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.15s, border-color 0.15s;
+
+    &:hover,
+    &:focus,
+    &:active {
+        color: var(--ifl-card-text);
+        text-decoration: none;
+    }
+
+    &:hover {
+        border-color: var(--ifl-card-accent);
+        background: var(--ifl-card-surface-alt);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--ifl-card-accent);
+        outline-offset: 2px;
+    }
+
+    &__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 12px;
+        border-bottom: 1px solid var(--ifl-card-border-light);
+        background: var(--ifl-card-surface-alt);
+    }
+
+    &__status {
+        display: inline-flex;
+        align-items: center;
+        padding: 1px 6px;
+        border-radius: 6px;
+        background: var(--ifl-card-border);
+        color: var(--ifl-card-text-muted);
+        font-size: 12.5px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        line-height: 1.5;
+        text-transform: uppercase;
+
+        &--live {
+            animation: IflScoreCard__pulse 1.5s ease-in-out infinite;
+            background: rgba(var(--error-text-color-rgb), 0.125);
+            color: var(--ifl-card-danger);
+        }
+
+        &--final {
+            background: color-mix(in srgb, var(--online-indicator) 12.5%, transparent);
+            color: var(--ifl-card-success);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            animation: none;
+        }
+    }
+
+    &__week {
+        color: var(--ifl-card-text-faint);
+        font-size: 12.5px;
+    }
+
+    &__row {
+        display: flex;
+        align-items: center;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--ifl-card-border-light);
+        gap: 8px;
+
+        &:last-child {
+            border-bottom: none;
+        }
+
+        &--winner {
+            background: rgba(var(--ifl-card-accent-rgb), 0.03);
+        }
+    }
+
+    // One line, as tall as the logo: a record with no room wraps onto a
+    // clipped second line and drops out (as on the site).
+    &__team {
+        display: flex;
+        overflow: hidden;
+        min-width: 0;
+        height: 29px;
+        flex: 1;
+        flex-wrap: wrap;
+        align-content: flex-start;
+        align-items: center;
+        column-gap: 8px;
+    }
+
+    &__abbr {
+        color: var(--ifl-card-text-secondary);
+        font-size: 14.4px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        line-height: 29px;
+        text-transform: uppercase;
+    }
+
+    &__record {
+        color: var(--ifl-card-text-faint);
+        font-size: 12.5px;
+        font-variant-numeric: tabular-nums;
+        line-height: 29px;
+        white-space: nowrap;
+    }
+
+    &__left {
+        flex-shrink: 0;
+        color: var(--ifl-card-text-muted);
+        font-size: 13.6px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    &__score {
+        min-width: 40px;
+        flex-shrink: 0;
+        color: var(--ifl-card-text-muted);
+        font-size: 16px;
+        font-variant-numeric: tabular-nums;
+        font-weight: 800;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    &__row--winner &__abbr {
+        color: var(--ifl-card-text);
+        font-weight: 700;
+    }
+
+    &__row--winner &__score {
+        color: var(--ifl-card-accent);
+    }
+}
+
+/* ===== Team logo ===== */
+
+.IflCardLogo {
+    flex-shrink: 0;
+    object-fit: contain;
+
+    &--text {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(var(--center-channel-color-rgb), 0.04);
+        color: rgba(var(--center-channel-color-rgb), 0.64);
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        line-height: 1;
+        text-transform: uppercase;
+    }
+}
+
+/* ===== News card ===== */
+
+.IflNewsCard {
+    display: grid;
+    overflow: hidden;
+    max-width: 560px;
+    padding: 14px 12px;
+    border: 1px solid var(--ifl-card-border);
+    border-radius: 10px;
+    margin-top: 4px;
+    background: var(--ifl-card-surface);
+    color: var(--ifl-card-text);
+    gap: 10px;
+    grid-template-columns: 44px minmax(0, 1fr);
+
+    a {
+        color: inherit;
+        text-decoration: none;
+    }
+
+    &__face {
+        display: flex;
+        justify-content: center;
+        padding-top: 2px;
+    }
+
+    &__headshot {
+        display: flex;
+        overflow: hidden;
+        width: 43px;
+        height: 43px;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--ifl-card-border);
+        border-radius: 50%;
+        background: #3a464d;
+
+        img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+    }
+
+    &__noface {
+        display: grid;
+        width: 43px;
+        height: 43px;
+        border-radius: 50%;
+        background: var(--ifl-card-surface-alt);
+        color: var(--ifl-card-text-faint);
+        font-size: 10.5px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        place-items: center;
+    }
+
+    &__body {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    &__top {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    &__who {
+        display: flex;
+        min-width: 0;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 4px 10px;
+
+        a {
+            color: var(--ifl-card-text);
+            font-size: 16px;
+            font-weight: 800;
+
+            &:hover,
+            &:focus {
+                color: var(--ifl-card-accent);
+                text-decoration: none;
+            }
+        }
+
+        small {
+            color: var(--ifl-card-text-muted);
+            font-size: 12.5px;
+            font-weight: 600;
+        }
+    }
+
+    &__yours {
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: rgba(var(--ifl-card-accent-rgb), 0.16);
+        color: var(--ifl-card-accent);
+        font-size: 10.9px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    &__when {
+        flex: none;
+        color: var(--ifl-card-text-muted);
+        cursor: help;
+        font-size: 12.5px;
+    }
+
+    &__headline {
+        margin: 0;
+        color: var(--ifl-card-text);
+        font-family: inherit;
+        font-size: 17px;
+        font-weight: 800;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+    }
+
+    // A well: recessed into the card (site styles/well.ts).
+    &__text {
+        padding: 10px 14px;
+        border-radius: 10px;
+        margin: 0;
+        background: rgba(var(--center-channel-color-rgb), 0.04);
+        box-shadow:
+            inset 0 1px 3px rgba(0, 0, 0, 0.1),
+            inset 0 0 0 1px rgba(var(--center-channel-color-rgb), 0.06);
+        color: var(--ifl-card-text-secondary);
+        font-size: 14.4px;
+        line-height: 1.55;
+        overflow-wrap: anywhere;
+        white-space: pre-wrap;
+    }
+
+    &__foot {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 14px;
+    }
+
+    &__owners {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    &__owner {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 10px 3px 4px;
+        border: 1px solid var(--ifl-card-border);
+        border-radius: 999px;
+        color: var(--ifl-card-text);
+        font-size: 12.2px;
+        font-weight: 700;
+        gap: 6px;
+
+        a {
+            display: inline-flex;
+            align-items: center;
+            color: inherit;
+            gap: 5px;
+
+            &:hover,
+            &:focus {
+                color: var(--ifl-card-accent);
+                text-decoration: none;
+            }
+        }
+
+        &--free {
+            border-color: var(--ifl-card-success);
+            color: var(--ifl-card-success);
+        }
+    }
+
+    &__conf {
+        padding: 1px 6px;
+        border-radius: 999px;
+        background: var(--ifl-card-surface-alt);
+        color: var(--ifl-card-text-muted);
+        font-size: 10.2px;
+        letter-spacing: 0.06em;
+    }
+
+    &__source {
+        margin-left: auto;
+        color: var(--ifl-card-text-faint);
+        font-size: 11.8px;
+    }
+}

@@ -10,6 +10,7 @@ import {Posts} from 'mattermost-redux/constants';
 import type {Theme} from 'mattermost-redux/selectors/entities/preferences';
 import {isPostEphemeral} from 'mattermost-redux/utils/post_utils';
 
+import {iflPostCard} from 'components/ifl/cards/ifl_post_card'; // IFL: app cards
 import PostMarkdown from 'components/post_markdown';
 import ShowMore from 'components/post_view/show_more';
 import type {AttachmentTextOverflowType} from 'components/post_view/show_more/show_more';
@@ -205,7 +206,8 @@ export default class PostMessageView extends React.PureComponent<Props, State> {
             return body;
         }
 
-        return (
+        // IFL: a score or news card from iflgm.com replaces the message once it loads.
+        return iflPostCard(post, (
             <ShowMore
                 checkOverflow={this.state.checkOverflow}
                 text={message}
@@ -214,6 +216,6 @@ export default class PostMessageView extends React.PureComponent<Props, State> {
             >
                 {body}
             </ShowMore>
-        );
+        ));
     }
 }

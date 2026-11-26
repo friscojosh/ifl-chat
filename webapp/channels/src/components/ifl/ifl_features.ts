@@ -20,3 +20,7 @@ export const IFL_UPSELLS = false as boolean;
 
 // The team chip after GMs' names (IFL Chat apps plan): logos from iflgm.com.
 export const IFL_TEAM_CHIPS = true as boolean;
+
+// The score and news cards members share from iflgm.com, drawn as the site
+// draws them (app cards) instead of the post's fallback attachment.
+export const IFL_APP_CARDS = true as boolean;

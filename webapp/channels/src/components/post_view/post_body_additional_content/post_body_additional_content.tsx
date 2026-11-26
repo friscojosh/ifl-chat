@@ -14,6 +14,7 @@ import {validateBindings} from 'mattermost-redux/utils/apps';
 import {getEmbedFromMetadata} from 'mattermost-redux/utils/post_utils';
 
 import {hasInteractiveMessageProps} from 'components/block_renderer/translation';
+import {IflCardAttachments} from 'components/ifl/cards/ifl_post_card'; // IFL: app cards
 import MessageAttachmentList from 'components/post_view/message_attachments/message_attachment_list';
 import PostAttachmentOpenGraph from 'components/post_view/post_attachment_opengraph';
 import PostImage from 'components/post_view/post_image';
@@ -96,13 +97,16 @@ class PostBodyAdditionalContent extends React.PureComponent<Props & WrappedCompo
         case 'message_attachment': {
             const attachments = isMessageAttachmentArray(this.props.post.props?.attachments) ? this.props.post.props?.attachments : [];
 
+            // IFL: no fallback attachment while a score or news card shows.
             return (
-                <MessageAttachmentList
-                    attachments={attachments}
-                    postId={this.props.post.id}
-                    options={this.props.options}
-                    imagesMetadata={this.props.post.metadata.images}
-                />
+                <IflCardAttachments post={this.props.post}>
+                    <MessageAttachmentList
+                        attachments={attachments}
+                        postId={this.props.post.id}
+                        options={this.props.options}
+                        imagesMetadata={this.props.post.metadata.images}
+                    />
+                </IflCardAttachments>
             );
         }
 
@@ -170,7 +174,10 @@ class PostBodyAdditionalContent extends React.PureComponent<Props & WrappedCompo
                 return (
                     <>
                         {this.props.children}
-                        <InteractiveMessages post={this.props.post}/>
+                        {/* IFL: no fallback attachment while a score or news card shows. */}
+                        <IflCardAttachments post={this.props.post}>
+                            <InteractiveMessages post={this.props.post}/>
+                        </IflCardAttachments>
                     </>
                 );
             }
