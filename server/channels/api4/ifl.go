@@ -22,6 +22,43 @@ func (api *API) InitIFL() {
 	api.BaseRoutes.APIRoot.Handle("/ifl/team_badges/refresh", api.APISessionRequired(iflRefreshTeamBadges)).Methods(http.MethodPost)
 	api.BaseRoutes.APIRoot.Handle("/ifl/team_badges/logos/{abbr:[A-Za-z0-9]+}.png", api.APIHandler(iflGetTeamLogo)).Methods(http.MethodGet)
 	api.BaseRoutes.APIRoot.Handle("/ifl/trade_cards", api.APISessionRequired(iflCreateTradeCard)).Methods(http.MethodPost)
+	api.BaseRoutes.APIRoot.Handle("/ifl/cards/score/{matchup_id:[0-9]{1,12}}", api.APISessionRequired(iflGetScoreCard)).Methods(http.MethodGet)
+	api.BaseRoutes.APIRoot.Handle("/ifl/cards/news/{item_id}", api.APISessionRequired(iflGetNewsCard)).Methods(http.MethodGet)
+}
+
+// iflGetScoreCard is a shared game's score card (app cards): iflgm.com's
+// {week, matchup} body, unchanged. Any signed-in member.
+func iflGetScoreCard(c *Context, w http.ResponseWriter, r *http.Request) {
+	body, appErr := c.App.IFLScoreCard(c.AppContext, mux.Vars(r)["matchup_id"])
+	if appErr != nil {
+		c.Err = appErr
+		return
+	}
+	iflWriteCard(c, w, body, "private, max-age=15")
+}
+
+// iflGetNewsCard is a shared story's news card (app cards): iflgm.com's
+// {item} body, unchanged, with the member's own team marked among the
+// owners. Any signed-in member.
+func iflGetNewsCard(c *Context, w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["item_id"]
+	if !ifl.ValidStoryID(id) {
+		c.SetInvalidURLParam("item_id")
+		return
+	}
+	body, appErr := c.App.IFLNewsCard(c.AppContext, id, c.AppContext.Session().UserId)
+	if appErr != nil {
+		c.Err = appErr
+		return
+	}
+	iflWriteCard(c, w, body, "private, max-age=300")
+}
+
+func iflWriteCard(c *Context, w http.ResponseWriter, body []byte, cacheControl string) {
+	w.Header().Set("Cache-Control", cacheControl)
+	if _, err := w.Write(body); err != nil {
+		c.Logger.Warn("Error while writing response", mlog.Err(err))
+	}
 }
 
 // iflCreateTradeCard posts a trade offer as the proposing GM in their direct
